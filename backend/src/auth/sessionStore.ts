@@ -34,6 +34,16 @@ export function buildMariaUser(): PublicUser {
     isVerified: true,
     onboardingCompleted: true,
     walletAddress: 'wallet_maria_santos_123',
+    wallets: [
+      {
+        id: 'wallet_1',
+        publicKey: 'GDEMO_WALLET_NOT_REAL_XXXXXXXXXXXXXXXXXX',
+        provider: 'albedo',
+        label: 'Demo Wallet',
+        isPrimary: true,
+        linkedAt: new Date('2024-01-15').toISOString(),
+      },
+    ],
     createdAt: new Date('2024-01-15').toISOString(),
   };
 }

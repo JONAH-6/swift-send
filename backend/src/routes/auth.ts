@@ -339,6 +339,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       isVerified: true,
       onboardingCompleted: true,
       walletAddress: `wallet_${session.id}`,
+      wallets: [], // Initialize with empty wallets array
       createdAt: new Date().toISOString(),
     };
 

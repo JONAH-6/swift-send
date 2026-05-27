@@ -13,7 +13,8 @@ import {
   Shield, 
   Zap,
   Globe,
-  ArrowRight
+  ArrowRight,
+  Star
 } from 'lucide-react';
 import { WalletProvider } from '@/types';
 import { cn } from '@/lib/utils';
@@ -271,23 +272,25 @@ export function WalletStatusIndicator() {
 
 // Quick wallet balance component
 export function WalletBalanceCard() {
-  const { connectionState, refreshBalance, disconnectWallet } = useWallet();
+  const { connectionState, refreshBalance, disconnectWallet, getActiveWallet } = useWallet();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  if (!connectionState.isConnected || !connectionState.account) {
+  const activeWallet = getActiveWallet();
+
+  if (!connectionState.isConnected || !activeWallet) {
     return null;
   }
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await refreshBalance();
+    await refreshBalance(activeWallet.id);
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
   return (
     <div className={cn(
       "p-4 border rounded-lg bg-gradient-to-br",
-      connectionState.account?.isReal 
+      activeWallet?.isReal 
         ? "from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200"
         : "from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-yellow-200"
     )}>
@@ -295,18 +298,21 @@ export function WalletBalanceCard() {
         <div className="flex items-center gap-2">
           <div className={cn(
             "flex items-center gap-2",
-            connectionState.account?.isReal ? "text-green-600" : "text-yellow-600"
+            activeWallet?.isReal ? "text-green-600" : "text-yellow-600"
           )}>
             <Wallet className="w-4 h-4" />
             <span className="text-sm font-medium">
-              {connectionState.account?.isReal ? 'Real Wallet Connected' : 'Demo Wallet'}
+              {activeWallet.label}
             </span>
-            {connectionState.account?.isReal ? (
+            {activeWallet?.isReal ? (
               <CheckCircle2 className="w-4 h-4 text-green-500" />
             ) : (
               <AlertCircle className="w-4 h-4 text-yellow-500" />
             )}
           </div>
+          {activeWallet.isPrimary && (
+            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+          )}
         </div>
         <Button
           variant="ghost"
@@ -318,7 +324,7 @@ export function WalletBalanceCard() {
         </Button>
       </div>
       
-      {!connectionState.account?.isReal && (
+      {!activeWallet?.isReal && (
         <div className="mb-3 p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded border border-yellow-300">
           <p className="text-xs text-yellow-800 dark:text-yellow-200">
             🧪 This is a demonstration wallet. No real transactions will be made.
@@ -328,14 +334,14 @@ export function WalletBalanceCard() {
       
       <div className="space-y-1">
         <p className="text-2xl font-bold text-foreground">
-          ${connectionState.account.balance.toFixed(2)}
-          {!connectionState.account?.isReal && (
+          ${activeWallet.balance.toFixed(2)}
+          {!activeWallet?.isReal && (
             <span className="text-sm font-normal text-yellow-600 ml-2">(Demo)</span>
           )}
         </p>
         <p className="text-xs text-muted-foreground">
-          {connectionState.account.publicKey.slice(0, 8)}...
-          {connectionState.account.publicKey.slice(-8)}
+          {activeWallet.publicKey.slice(0, 8)}...
+          {activeWallet.publicKey.slice(-8)}
         </p>
       </div>
       
@@ -343,7 +349,7 @@ export function WalletBalanceCard() {
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <Shield className="w-3 h-3" />
-            <span>{connectionState.account?.isReal ? 'Real Self-custody' : 'Demo Mode'}</span>
+            <span>{activeWallet?.isReal ? 'Real Self-custody' : 'Demo Mode'}</span>
           </div>
           <div className="flex items-center gap-1">
             <Globe className="w-3 h-3" />
@@ -356,14 +362,14 @@ export function WalletBalanceCard() {
           variant="outline"
           size="sm"
           onClick={() => {
-            const walletType = connectionState.account?.isReal ? 'real wallet' : 'demo wallet';
+            const walletType = activeWallet?.isReal ? 'real wallet' : 'demo wallet';
             if (window.confirm(`Are you sure you want to disconnect your ${walletType}?`)) {
               disconnectWallet();
             }
           }}
           className="text-xs px-3 py-1 h-auto"
         >
-          Disconnect
+          Disconnect All
         </Button>
       </div>
     </div>

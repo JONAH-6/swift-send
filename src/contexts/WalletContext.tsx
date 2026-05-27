@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
-import { StellarAccount, StellarWallet, WalletTransaction, WalletProvider, WalletConnectionState } from '@/types';
+import { StellarAccount, StellarWallet, WalletTransaction, WalletProvider, WalletConnectionState, LinkedWallet } from '@/types';
 import { toast } from 'sonner';
 
 interface WalletContextType {
@@ -10,16 +10,41 @@ interface WalletContextType {
   isSyncing: boolean;
   connectWallet: (provider: WalletProvider) => Promise<void>;
   disconnectWallet: () => void;
+  disconnectSpecificWallet: (walletId: string) => void;
+  switchWallet: (walletId: string) => void;
+  setPrimaryWallet: (walletId: string) => void;
+  renameWallet: (walletId: string, label: string) => void;
   signTransaction: (transaction: any) => Promise<string>;
-  refreshBalance: () => Promise<void>;
+  refreshBalance: (walletId?: string) => Promise<void>;
+  refreshAllBalances: () => Promise<void>;
   getRecentTransactions: () => Promise<WalletTransaction[]>;
   syncStateOnReload: () => Promise<void>;
+  getActiveWallet: () => LinkedWallet | undefined;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const WALLET_TX_STORAGE_KEY = 'stellar-wallet-transactions';
+const LINKED_WALLETS_STORAGE_KEY = 'stellar-linked-wallets';
 const HORIZON_URL = (import.meta.env.VITE_STELLAR_HORIZON_URL as string | undefined) || 'https://horizon-testnet.stellar.org';
+
+function parseStoredLinkedWallets(raw: string | null): LinkedWallet[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as Array<Omit<LinkedWallet, 'linkedAt' | 'lastSyncedAt'> & { linkedAt: string; lastSyncedAt?: string }>;
+    return parsed.map((wallet) => ({
+      ...wallet,
+      linkedAt: new Date(wallet.linkedAt),
+      lastSyncedAt: wallet.lastSyncedAt ? new Date(wallet.lastSyncedAt) : undefined,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function generateWalletId(): string {
+  return `wallet_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
 
 function parseStoredTransactions(raw: string | null): WalletTransaction[] {
   if (!raw) return [];
@@ -36,8 +61,13 @@ function toStableTxId() {
 }
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const [connectionState, setConnectionState] = useState<WalletConnectionState>({
-    isConnected: false
+  const [connectionState, setConnectionState] = useState<WalletConnectionState>(() => {
+    const storedWallets = parseStoredLinkedWallets(localStorage.getItem(LINKED_WALLETS_STORAGE_KEY));
+    return {
+      isConnected: storedWallets.length > 0,
+      linkedWallets: storedWallets,
+      activeWalletId: storedWallets.length > 0 ? storedWallets[0].id : undefined,
+    };
   });
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSigningTransaction, setIsSigningTransaction] = useState(false);
@@ -170,7 +200,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const savedConnection = localStorage.getItem('stellar-wallet-connection');
     if (savedConnection) {
       try {
-        const { provider } = JSON.parse(savedConnection);
+        const { provider, activeWalletId } = JSON.parse(savedConnection);
         if (provider === 'freighter' && window.freighter) {
           // Check if Freighter is still connected
           window.freighter.isAllowed().then(({ isAllowed }) => {
@@ -452,14 +482,39 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       const account = await wallet.connect();
       
-      setConnectionState({
-        isConnected: true,
-        account,
-        provider
-      });
+      // Check if wallet with same public key already exists
+      const existingWallet = connectionState.linkedWallets.find(w => w.publicKey === account.publicKey);
+      if (existingWallet) {
+        // Switch to existing wallet
+        setConnectionState(prev => ({
+          ...prev,
+          isConnected: true,
+          activeWalletId: existingWallet.id,
+          provider
+        }));
+        toast.success(`${wallet.name} already linked`, {
+          description: 'Switched to existing wallet'
+        });
+        setIsConnecting(false);
+        return;
+      }
 
-      // Save connection to localStorage for persistence
-      localStorage.setItem('stellar-wallet-connection', JSON.stringify({ provider, publicKey: account.publicKey }));
+      // Create new linked wallet
+      const newLinkedWallet: LinkedWallet = {
+        ...account,
+        id: generateWalletId(),
+        label: `${wallet.name} ${connectionState.linkedWallets.length + 1}`,
+        isPrimary: connectionState.linkedWallets.length === 0,
+        linkedAt: new Date(),
+        lastSyncedAt: new Date(),
+      };
+
+      setConnectionState(prev => ({
+        isConnected: true,
+        linkedWallets: [...prev.linkedWallets, newLinkedWallet],
+        activeWalletId: newLinkedWallet.id,
+        provider
+      }));
 
       if (account.isReal) {
         toast.success(`🎉 Real ${wallet.name} Connected!`, {
@@ -471,10 +526,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch (error: any) {
-      setConnectionState({
+      setConnectionState(prev => ({
+        ...prev,
         isConnected: false,
         error: error.message
-      });
+      }));
       
       // Provide helpful error messages
       if (error.message.includes('not installed')) {
@@ -497,19 +553,149 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const disconnectWallet = () => {
     setConnectionState({
-      isConnected: false
+      isConnected: false,
+      linkedWallets: [],
+      activeWalletId: undefined,
     });
     
     // Clear saved connection
     localStorage.removeItem('stellar-wallet-connection');
+    localStorage.removeItem(LINKED_WALLETS_STORAGE_KEY);
     
-    toast.success('Wallet disconnected');
+    toast.success('All wallets disconnected');
+  };
+
+  const disconnectSpecificWallet = (walletId: string) => {
+    const updatedWallets = connectionState.linkedWallets.filter(w => w.id !== walletId);
+    const wasActive = connectionState.activeWalletId === walletId;
+    
+    if (updatedWallets.length === 0) {
+      // No wallets left
+      setConnectionState({
+        isConnected: false,
+        linkedWallets: [],
+        activeWalletId: undefined,
+      });
+      toast.success('Wallet disconnected');
+    } else {
+      // Set new active wallet if the disconnected one was active
+      const newActiveWalletId = wasActive ? updatedWallets[0].id : connectionState.activeWalletId;
+      setConnectionState(prev => ({
+        ...prev,
+        linkedWallets: updatedWallets,
+        activeWalletId: newActiveWalletId,
+        isConnected: updatedWallets.length > 0,
+      }));
+      toast.success('Wallet disconnected');
+    }
+  };
+
+  const switchWallet = (walletId: string) => {
+    const wallet = connectionState.linkedWallets.find(w => w.id === walletId);
+    if (!wallet) {
+      toast.error('Wallet not found');
+      return;
+    }
+
+    setConnectionState(prev => ({
+      ...prev,
+      activeWalletId: walletId,
+      provider: wallet.provider as WalletProvider,
+    }));
+
+    toast.success(`Switched to ${wallet.label}`);
+  };
+
+  const setPrimaryWallet = (walletId: string) => {
+    const updatedWallets = connectionState.linkedWallets.map(w => ({
+      ...w,
+      isPrimary: w.id === walletId,
+    }));
+
+    setConnectionState(prev => ({
+      ...prev,
+      linkedWallets: updatedWallets,
+    }));
+
+    toast.success('Primary wallet updated');
+  };
+
+  const renameWallet = (walletId: string, label: string) => {
+    const updatedWallets = connectionState.linkedWallets.map(w =>
+      w.id === walletId ? { ...w, label } : w
+    );
+
+    setConnectionState(prev => ({
+      ...prev,
+      linkedWallets: updatedWallets,
+    }));
+
+    toast.success('Wallet renamed');
+  };
+
+  const getActiveWallet = (): LinkedWallet | undefined => {
+    return connectionState.linkedWallets.find(w => w.id === connectionState.activeWalletId);
+  };
+
+  const refreshBalance = async (walletId?: string) => {
+    const targetWalletId = walletId || connectionState.activeWalletId;
+    if (!targetWalletId) return;
+
+    try {
+      // Mock balance refresh for specific wallet
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const newBalance = Math.random() * 1000;
+      
+      setConnectionState(prev => ({
+        ...prev,
+        linkedWallets: prev.linkedWallets.map(w =>
+          w.id === targetWalletId
+            ? { ...w, balance: newBalance, lastSyncedAt: new Date() }
+            : w
+        ),
+      }));
+    } catch (error) {
+      console.error('Failed to refresh balance:', error);
+    }
+  };
+
+  const refreshAllBalances = async () => {
+    if (connectionState.linkedWallets.length === 0) return;
+
+    try {
+      setIsSyncing(true);
+      await Promise.all(
+        connectionState.linkedWallets.map(async (wallet) => {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const newBalance = Math.random() * 1000;
+          return {
+            ...wallet,
+            balance: newBalance,
+            lastSyncedAt: new Date(),
+          };
+        })
+      );
+
+      setConnectionState(prev => ({
+        ...prev,
+        linkedWallets: prev.linkedWallets.map(w => ({
+          ...w,
+          balance: Math.random() * 1000,
+          lastSyncedAt: new Date(),
+        })),
+      }));
+    } catch (error) {
+      console.error('Failed to refresh all balances:', error);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const signTransaction = async (transaction: any): Promise<string> => {
     setIsSigningTransaction(true);
     try {
-      if (!connectionState.isConnected || !connectionState.account) {
+      const activeWallet = getActiveWallet();
+      if (!connectionState.isConnected || !activeWallet) {
         throw new Error('No wallet connected');
       }
 
@@ -556,26 +742,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshBalance = async () => {
-    if (!connectionState.isConnected || !connectionState.account) return;
-
-    try {
-      // Mock balance refresh
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const newBalance = Math.random() * 1000;
-      
-      setConnectionState(prev => ({
-        ...prev,
-        account: prev.account ? {
-          ...prev.account,
-          balance: newBalance
-        } : undefined
-      }));
-    } catch (error) {
-      console.error('Failed to refresh balance:', error);
-    }
-  };
-
   const getRecentTransactions = async (): Promise<WalletTransaction[]> => {
     if (!connectionState.isConnected) return [];
 
@@ -619,16 +785,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Save linked wallets to localStorage
+  useEffect(() => {
+    localStorage.setItem(LINKED_WALLETS_STORAGE_KEY, JSON.stringify(connectionState.linkedWallets));
+  }, [connectionState.linkedWallets]);
+
   // Save connection state
   useEffect(() => {
-    if (connectionState.isConnected && connectionState.provider) {
-      localStorage.setItem('stellar-wallet-connection', JSON.stringify({
-        provider: connectionState.provider
-      }));
+    if (connectionState.isConnected && connectionState.activeWalletId) {
+      const activeWallet = connectionState.linkedWallets.find(w => w.id === connectionState.activeWalletId);
+      if (activeWallet) {
+        localStorage.setItem('stellar-wallet-connection', JSON.stringify({
+          provider: activeWallet.provider as WalletProvider,
+          activeWalletId: connectionState.activeWalletId
+        }));
+      }
     } else {
       localStorage.removeItem('stellar-wallet-connection');
     }
-  }, [connectionState]);
+  }, [connectionState.isConnected, connectionState.activeWalletId, connectionState.linkedWallets]);
 
   return (
     <WalletContext.Provider
@@ -640,10 +815,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         isSyncing,
         connectWallet,
         disconnectWallet,
+        disconnectSpecificWallet,
+        switchWallet,
+        setPrimaryWallet,
+        renameWallet,
         signTransaction,
         refreshBalance,
+        refreshAllBalances,
         getRecentTransactions,
-        syncStateOnReload
+        syncStateOnReload,
+        getActiveWallet,
       }}
     >
       {children}

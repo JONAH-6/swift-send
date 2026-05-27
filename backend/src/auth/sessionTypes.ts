@@ -10,7 +10,15 @@ export interface PublicUser {
   exchangeRate: number;
   isVerified: boolean;
   onboardingCompleted: boolean;
-  walletAddress?: string;
+  walletAddress?: string; // Legacy field for backward compatibility
+  wallets?: Array<{
+    id: string;
+    publicKey: string;
+    provider: string;
+    label: string;
+    isPrimary: boolean;
+    linkedAt: string;
+  }>;
   createdAt: string;
 }
 

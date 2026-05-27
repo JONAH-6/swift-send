@@ -6,14 +6,18 @@ import {
   IdentityVerification,
   TransactionRiskAssessment,
   COMPLIANCE_TIERS,
-  ComplianceFlag
+  ComplianceFlag,
+  GeoComplianceCheck
 } from '@/types/compliance';
+import { detectRegion, checkGeoCompliance } from '@/lib/compliance';
 
 interface ComplianceContextType {
   status: ComplianceStatus | null;
   verification: IdentityVerification | null;
   checkTransactionCompliance: (amount: number, destination: string) => ComplianceCheck;
   assessTransactionRisk: (amount: number, destination: string) => TransactionRiskAssessment;
+  checkGeoCompliance: (amount: number, destinationCountry: string) => GeoComplianceCheck;
+  detectRegion: (countryCode: string) => string;
   upgradeToTier: (tierId: string) => Promise<boolean>;
   refreshStatus: () => Promise<void>;
   resolveFlag: (flagId: string) => Promise<void>;
@@ -221,6 +225,8 @@ export function ComplianceProvider({ children }: { children: ReactNode }) {
         verification,
         checkTransactionCompliance,
         assessTransactionRisk,
+        checkGeoCompliance,
+        detectRegion,
         upgradeToTier,
         refreshStatus,
         resolveFlag,
