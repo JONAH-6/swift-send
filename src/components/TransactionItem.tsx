@@ -9,6 +9,7 @@ import { splitFee } from '@/lib/fees';
 import { DownloadReceiptButton } from '@/components/DownloadReceiptButton';
 import { getTagColorClass } from '@/lib/tags';
 import { getPurposeByCode } from '@/data/transferPurposes';
+import { TransactionStatusTimeline } from './TransactionStatusTimeline';
 
 interface TransactionItemProps {
   transaction: Transaction;
@@ -153,6 +154,11 @@ function TransactionItemComponent({
       {/* Detailed Information */}
       {showDetailedView && (
         <div className="border-t border-border/50 pt-3 space-y-3">
+          {/* Transaction Status Timeline */}
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+            <TransactionStatusTimeline status={transaction.status} />
+          </div>
+
           {/* Transaction Details */}
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>

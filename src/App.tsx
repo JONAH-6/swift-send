@@ -22,6 +22,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ComplianceInfo = lazy(() => import("./pages/ComplianceInfo"));
 const Refunds = lazy(() => import("./pages/Refunds"));
+const NotificationPreferences = lazy(() => import("./pages/NotificationPreferences"));
 const VerificationFlow = lazy(() =>
   import("./components/VerificationFlow").then((module) => ({
     default: module.VerificationFlow,
@@ -146,50 +147,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/errors"
-          element={
-            <ProtectedRoute>
-              <AdminErrorDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/compliance"
-          element={
-            <ProtectedRoute>
-              <AdminComplianceLogs />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/dlq"
-          element={
-            <ProtectedRoute>
-              <AdminDeadLetterQueue />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/stellar"
-          element={
-            <ProtectedRoute>
-              <AdminStellarMonitor />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/settlements"
-          element={
-            <ProtectedRoute>
-              <AdminSettlementAnalytics />
+
             </ProtectedRoute>
           }
         />

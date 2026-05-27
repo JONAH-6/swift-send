@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState, useMemo, useEffect } from 'react';
 import { ChevronDown, Search, Filter, Calendar, Banknote, TrendingUp, Clock, ArrowLeft, Download, FileText, FileSpreadsheet, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -92,6 +92,25 @@ const History: React.FC = () => {
   }, []);
 
   const [purposeFilter, setPurposeFilter] = useState<string>('all');
+
+  const PAGE_SIZE = 20;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Reset pagination whenever filters change so users always see fresh results from the top
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchTerm, statusFilter, typeFilter, purposeFilter]);
+
+  const paginatedTransactions = useMemo(
+    () => filteredTransactions.slice(0, visibleCount),
+    [filteredTransactions, visibleCount],
+  );
+
+  const hasMore = visibleCount < filteredTransactions.length;
+
+  const loadMore = useCallback(() => {
+    setVisibleCount((prev) => prev + PAGE_SIZE);
+  }, []);
 
   const clearFilters = useCallback(() => {
     setSearchTerm('');
@@ -372,11 +391,11 @@ const History: React.FC = () => {
             {/* Results header */}
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-muted-foreground">
-                {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
+                {paginatedTransactions.length} of {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
               </p>
               {(searchTerm || statusFilter !== 'all' || typeFilter !== 'all') && (
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={clearFilters}
                   className="text-xs"
@@ -386,8 +405,8 @@ const History: React.FC = () => {
               )}
             </div>
 
-            {filteredTransactions.map((transaction, index) => (
-              <div key={transaction.id} className="animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
+            {paginatedTransactions.map((transaction, index) => (
+              <div key={transaction.id} className="animate-slide-up" style={{ animationDelay: `${Math.min(index, 10) * 50}ms` }}>
                 <TransactionItem
                   transaction={transaction}
                   showDetailedView={expandedTransactionId === transaction.id}
@@ -395,6 +414,14 @@ const History: React.FC = () => {
                 />
               </div>
             ))}
+
+            {hasMore && (
+              <div className="flex justify-center pt-4">
+                <Button variant="outline" size="sm" onClick={loadMore}>
+                  Load more ({filteredTransactions.length - visibleCount} remaining)
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
