@@ -59,6 +59,8 @@ interface NotificationsDto {
     id: string;
     userId: string;
     type: 'success' | 'error' | 'warning' | 'info';
+    category?: 'transaction' | 'security' | 'account' | 'compliance' | 'system' | 'marketing';
+    priority?: 'critical' | 'high' | 'medium' | 'low';
     title: string;
     message: string;
     createdAt: string;
@@ -72,6 +74,9 @@ interface NotificationsDto {
       sentAt?: string;
       reason?: string;
     }>;
+    groupId?: string;
+    actionUrl?: string;
+    expiresAt?: string;
   }>;
   unreadCount: number;
 }
@@ -220,12 +225,17 @@ function parseRiskSummary(dto: NonNullable<TransactionsResponseDto['items'][numb
 function parseNotificationDto(dto: NotificationsDto['items'][number]): UserNotification {
   return {
     ...dto,
+    category: dto.category || 'system',
+    priority: dto.priority || 'medium',
     createdAt: new Date(dto.createdAt),
     readAt: dto.readAt ? new Date(dto.readAt) : undefined,
     deliveries: dto.deliveries.map((delivery) => ({
       ...delivery,
       sentAt: delivery.sentAt ? new Date(delivery.sentAt) : undefined,
     })),
+    groupId: dto.groupId,
+    actionUrl: dto.actionUrl,
+    expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
   };
 }
 

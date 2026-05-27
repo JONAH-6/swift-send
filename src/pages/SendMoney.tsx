@@ -13,6 +13,7 @@ import { CountryInfoPanel } from '@/components/CountryInfoPanel';
 import { CountrySummary } from '@/components/CountrySummary';
 import { ComplianceRulesList } from '@/components/ComplianceRulesList';
 import { NetworkStatusIndicator } from '@/components/NetworkStatusIndicator';
+import { SuspiciousRedirectWarning, useSecureRedirect } from '@/components/SuspiciousRedirectWarning';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { useCompliance } from '@/contexts/ComplianceContext';
@@ -87,6 +88,7 @@ export default function SendMoney() {
   const { user, transactionSigningSecret, updateBalance } = useAuth();
   const { connectionState } = useWallet();
   const { checkTransactionCompliance } = useCompliance();
+  const { openSecure } = useSecureRedirect();
   const network = useNetworkStatus();
   const [step, setStep] = useState<Step>("recipient");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -116,6 +118,7 @@ export default function SendMoney() {
     details: Array<{ identifier: string; status: 'success' | 'failed'; message?: string }>;
   } | null>(null);
   const [isBulkSending, setIsBulkSending] = useState(false);
+  const [suspiciousRedirectUrl, setSuspiciousRedirectUrl] = useState<string | null>(null);
   const pinInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [purposeCode, setPurposeCode] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
@@ -706,11 +709,10 @@ export default function SendMoney() {
         description: `Transaction hash: ${txHash.slice(0, 8)}...`,
         action: {
           label: "View Explorer",
-          onClick: () =>
-            window.open(
-              `https://stellar.expert/explorer/public/tx/${txHash}`,
-              "_blank",
-            ),
+          onClick: () => {
+            const explorerUrl = `https://stellar.expert/explorer/public/tx/${txHash}`;
+            openSecure(explorerUrl);
+          },
         },
       });
     } catch (error: unknown) {

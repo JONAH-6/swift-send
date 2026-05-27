@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, Check, CheckCheck, X } from "lucide-react";
+import { Bell, Check, CheckCheck, X, AlertTriangle, Shield, DollarSign, Settings, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -13,27 +13,20 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { apiFetch } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
-
-interface Notification {
-  id: string;
-  type: "success" | "error" | "warning" | "info";
-  title: string;
-  message: string;
-  createdAt: string;
-  readAt?: string;
-  transferId?: string;
-}
+import { sortNotificationsByPriority, getCriticalNotifications, getCategoryInfo, getPriorityInfo } from "@/lib/notificationPrioritization";
+import type { UserNotification } from "@/types/activity";
 
 interface NotificationResponse {
-  items: Notification[];
+  items: UserNotification[];
   unreadCount: number;
 }
 
 export function NotificationCenter() {
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'critical'>('all');
 
   useEffect(() => {
     if (open) {
@@ -47,7 +40,8 @@ export function NotificationCenter() {
       const response = await apiFetch("/notifications?limit=50");
       if (response.ok) {
         const data: NotificationResponse = await response.json();
-        setNotifications(data.items);
+        const sortedNotifications = sortNotificationsByPriority(data.items);
+        setNotifications(sortedNotifications);
         setUnreadCount(data.unreadCount);
       }
     } catch (error) {
@@ -96,18 +90,26 @@ export function NotificationCenter() {
     }
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "success":
-        return "bg-green-500/10 text-green-500 border-green-500/20";
-      case "error":
-        return "bg-red-500/10 text-red-500 border-red-500/20";
-      case "warning":
-        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'transaction':
+        return <DollarSign className="w-4 h-4" />;
+      case 'security':
+        return <Shield className="w-4 h-4" />;
+      case 'account':
+        return <Settings className="w-4 h-4" />;
+      case 'compliance':
+        return <AlertTriangle className="w-4 h-4" />;
+      case 'marketing':
+        return <Megaphone className="w-4 h-4" />;
       default:
-        return "bg-blue-500/10 text-blue-500 border-blue-500/20";
+        return <Bell className="w-4 h-4" />;
     }
   };
+
+  const filteredNotifications = filter === 'critical' 
+    ? getCriticalNotifications(notifications)
+    : notifications;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -115,12 +117,9 @@ export function NotificationCenter() {
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-            >
+            <span className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-destructive text-destructive-foreground rounded-full">
               {unreadCount > 9 ? "9+" : unreadCount}
-            </Badge>
+            </span>
           )}
         </Button>
       </SheetTrigger>
@@ -135,6 +134,26 @@ export function NotificationCenter() {
         </SheetHeader>
 
         <div className="mt-4 space-y-4">
+          {/* Filter Tabs */}
+          <div className="flex gap-2">
+            <Button
+              variant={filter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilter('all')}
+              className="flex-1"
+            >
+              All
+            </Button>
+            <Button
+              variant={filter === 'critical' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilter('critical')}
+              className="flex-1"
+            >
+              Critical
+            </Button>
+          </div>
+
           {unreadCount > 0 && (
             <Button
               variant="outline"
@@ -158,54 +177,61 @@ export function NotificationCenter() {
               </div>
             ) : (
               <div className="space-y-3">
-                {notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`p-4 rounded-lg border ${
-                      notification.readAt ? "bg-muted/30" : "bg-card"
-                    } transition-colors`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={`${getTypeColor(notification.type)} text-xs`}
-                          >
-                            {notification.type}
-                          </Badge>
-                          {!notification.readAt && (
-                            <div className="h-2 w-2 rounded-full bg-blue-500" />
-                          )}
+                {filteredNotifications.map((notification) => {
+                  const categoryInfo = getCategoryInfo(notification.category);
+                  const priorityInfo = getPriorityInfo(notification.priority);
+                  
+                  return (
+                    <div
+                      key={notification.id}
+                      className={`p-4 rounded-lg border ${
+                        notification.readAt ? "bg-muted/30" : "bg-card"
+                      } ${notification.priority === 'critical' ? 'border-l-4 border-l-red-500' : ''} transition-colors`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {/* Priority Badge */}
+                            <span className={`text-xs px-2 py-0.5 rounded ${priorityInfo.color}`}>
+                              {priorityInfo.icon} {priorityInfo.label}
+                            </span>
+                            
+                            {/* Category Badge */}
+                            <span className={`text-xs px-2 py-0.5 rounded border ${categoryInfo.color}`}>
+                              {categoryInfo.icon} {categoryInfo.label}
+                            </span>
+                            
+                            {!notification.readAt && (
+                              <div className="h-2 w-2 rounded-full bg-blue-500" />
+                            )}
+                          </div>
+                          <h4 className="font-medium text-sm">
+                            {notification.title}
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            {notification.message}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{formatDistanceToNow(notification.createdAt, { addSuffix: true })}</span>
+                            {notification.expiresAt && new Date() < notification.expiresAt && (
+                              <span className="text-amber-600">Expires {formatDistanceToNow(notification.expiresAt, { addSuffix: true })}</span>
+                            )}
+                          </div>
                         </div>
-                        <h4 className="font-medium text-sm">
-                          {notification.title}
-                        </h4>
-                        <p className="text-sm text-muted-foreground">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(
-                            new Date(notification.createdAt),
-                            {
-                              addSuffix: true,
-                            },
-                          )}
-                        </p>
+                        {!notification.readAt && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => markAsRead(notification.id)}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
-                      {!notification.readAt && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => markAsRead(notification.id)}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </ScrollArea>
