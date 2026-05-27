@@ -8,6 +8,8 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { splitFee } from '@/lib/fees';
 import { DownloadReceiptButton } from '@/components/DownloadReceiptButton';
 import { getTagColorClass } from '@/lib/tags';
+import { getPurposeByCode } from '@/data/transferPurposes';
+import { TransactionStatusTimeline } from './TransactionStatusTimeline';
 
 interface TransactionItemProps {
   transaction: Transaction;
@@ -150,6 +152,11 @@ function TransactionItemComponent({
       {/* Detailed Information */}
       {showDetailedView && (
         <div className="border-t border-border/50 pt-3 space-y-3">
+          {/* Transaction Status Timeline */}
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+            <TransactionStatusTimeline status={transaction.status} />
+          </div>
+
           {/* Transaction Details */}
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
@@ -226,11 +233,12 @@ function TransactionItemComponent({
           )}
 
           {/* Detailed metadata (#92): always-visible context the user attached
-              when sending — notes, category, exchange-rate snapshot, and the
-              destination currency. Hidden when no metadata is present so the
-              section doesn't render an empty box. */}
+              when sending — notes, category, purpose, exchange-rate snapshot,
+              and the destination currency. Hidden when no metadata is present
+              so the section doesn't render an empty box. */}
           {(transaction.notes ||
             transaction.category ||
+            transaction.purposeCode ||
             transaction.exchangeRate ||
             transaction.destinationCurrency ||
             transaction.tags?.length) && (
@@ -250,6 +258,14 @@ function TransactionItemComponent({
                       data-testid="transaction-metadata-category"
                     >
                       {transaction.category}
+                    </dd>
+                  </div>
+                )}
+                {transaction.purposeCode && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Purpose</dt>
+                    <dd className="font-medium text-foreground">
+                      {getPurposeByCode(transaction.purposeCode)?.label || transaction.purposeCode}
                     </dd>
                   </div>
                 )}
@@ -361,7 +377,7 @@ function TransactionItemComponent({
           </div>
         </div>
       )}
-    </button>
+    </div>
   );
 }
 
