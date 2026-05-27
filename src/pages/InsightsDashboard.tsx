@@ -13,14 +13,16 @@ import {
   Cell,
   Legend,
 } from 'recharts';
-import { TrendingUp, DollarSign, CheckCircle2, XCircle, BarChart3, Tag, List } from 'lucide-react';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SkeletonInsightsGrid, SkeletonBarChart } from '@/components/SkeletonLoaders';
 import { ComparativeInsights } from '@/components/ComparativeInsights';
 import { BottomNav } from '@/components/BottomNav';
+import { Button } from '@/components/ui/button';
 import { fetchSpendingInsights } from '@/lib/activity';
+import { useNavigate } from 'react-router-dom';
 import type { SpendingInsights } from '@/types/activity';
 import { TRANSFER_PURPOSES, getPurposeByCode } from '@/data/transferPurposes';
 
@@ -34,6 +36,7 @@ const CATEGORY_COLORS = [
 ];
 
 export default function InsightsDashboard() {
+  const navigate = useNavigate();
   const { data, isLoading, error } = useQuery<SpendingInsights>({
     queryKey: ['spending-insights'],
     queryFn: fetchSpendingInsights,
@@ -60,6 +63,7 @@ export default function InsightsDashboard() {
         ) : (
           <>
             <SummaryCards summary={data?.summary} isLoading={isLoading} />
+            <HeatmapCard />
             <MonthlyTrendsChart data={data?.monthlyTransferData} isLoading={isLoading} />
             <ComparativeInsights data={data?.monthlyTransferData} isLoading={isLoading} />
             <CategoryBreakdownChart data={data?.categoryData} isLoading={isLoading} />
@@ -131,6 +135,35 @@ function SummaryCards({
         </Card>
       ))}
     </div>
+  );
+}
+
+function HeatmapCard() {
+  const navigate = useNavigate();
+  return (
+    <Card
+      className="border-border/60 cursor-pointer hover:bg-accent/50 transition-colors"
+      onClick={() => navigate('/activity-heatmap')}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Activity Heatmap</p>
+              <p className="text-sm text-muted-foreground">
+                Visualize spending patterns by time and day
+              </p>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" className="shrink-0">
+            View
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

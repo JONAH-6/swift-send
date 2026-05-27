@@ -83,6 +83,18 @@ export default async function activityRoutes(fastify: FastifyInstance) {
     },
   );
 
+  fastify.get<{ Querystring: { months?: string } }>(
+    '/activity/heatmap',
+    { preHandler: [requireVerifiedSession] },
+    async (req, reply) => {
+      const session = requireSessionUser(req.user as JwtSessionPayload, reply);
+      if (!session) return;
+      const months = Math.min(Math.max(Number(req.query.months || 3), 1), 12);
+      reply.header('Cache-Control', 'private, max-age=30');
+      return fastify.container.services.activity.getActivityHeatmap(session.user!.id, months);
+    },
+  );
+
   fastify.get(
     '/activity/spending-insights',
     { preHandler: [requireVerifiedSession] },

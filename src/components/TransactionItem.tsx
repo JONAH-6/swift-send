@@ -43,7 +43,7 @@ function TransactionItemComponent({
     }
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (!onClick) {
       return;
     }
@@ -54,12 +54,10 @@ function TransactionItemComponent({
   };
 
   return (
-    <div
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
+    <button
       onClick={onClick}
       onKeyDown={handleKeyDown}
-      className="w-full flex flex-col gap-3 p-3 sm:p-4 rounded-xl bg-card hover:bg-secondary/50 transition-all duration-200 shadow-card animate-slide-up border border-border/50 overflow-hidden cursor-pointer"
+      className="w-full flex flex-col gap-3 p-3 sm:p-4 rounded-xl bg-card hover:bg-secondary/50 transition-all duration-200 shadow-card animate-slide-up border border-border/50 overflow-hidden cursor-pointer text-left"
     >
       {/* Main Transaction Row */}
       <div className="flex items-center gap-3 sm:gap-4 min-w-0">

@@ -28,12 +28,7 @@ const VerificationFlow = lazy(() =>
     default: module.VerificationFlow,
   })),
 );
-const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
-const AdminErrorDashboard = lazy(() => import("./pages/AdminErrorDashboard"));
-const AdminComplianceLogs = lazy(() => import("./pages/AdminComplianceLogs"));
-const AdminDeadLetterQueue = lazy(() => import("./pages/AdminDeadLetterQueue"));
-const AdminStellarMonitor = lazy(() => import("./pages/AdminStellarMonitor"));
-const AdminSettlementAnalytics = lazy(() => import("./pages/AdminSettlementAnalytics"));
+
 
 const queryClient = new QueryClient();
 
@@ -135,6 +130,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <ComplianceInfo />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/activity-heatmap"
+          element={
+            <ProtectedRoute>
+              <ActivityHeatmap />
             </ProtectedRoute>
           }
         />
