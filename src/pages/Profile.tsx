@@ -103,7 +103,7 @@ export default function Profile() {
       onClick: () => navigate('/verification'),
       description: 'View your account status and upgrade limits'
     },
-    { icon: Bell, label: 'Notifications', onClick: () => {} },
+    { icon: Bell, label: 'Notifications', onClick: () => navigate('/notification-preferences'), description: 'Manage email, SMS and push alert preferences' },
     { icon: HelpCircle, label: 'Help & Support', onClick: () => {} },
   ];
 
