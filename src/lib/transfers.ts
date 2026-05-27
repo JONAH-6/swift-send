@@ -1,4 +1,6 @@
 import { apiFetch } from "@/lib/api";
+import { GeoComplianceCheck } from "@/types/compliance";
+import { checkGeoCompliance } from "@/lib/compliance";
 
 type JsonLike =
   | null
@@ -82,6 +84,7 @@ export interface TransferSimulationResult {
   compliance: {
     tier: string;
     can_proceed: boolean;
+    geoCompliance?: GeoComplianceCheck;
   };
   multisig?: {
     threshold: number;
@@ -89,6 +92,19 @@ export interface TransferSimulationResult {
     approvals_count: number;
     approvals_required: number;
   };
+}
+
+/**
+ * Check geo-aware compliance for a transfer
+ */
+export function checkTransferGeoCompliance(
+  amount: number,
+  destinationCountry?: string
+): GeoComplianceCheck | null {
+  if (!destinationCountry) {
+    return null;
+  }
+  return checkGeoCompliance(amount, destinationCountry);
 }
 
 function sortValue(value: JsonLike): JsonLike {

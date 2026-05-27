@@ -13,7 +13,15 @@ export interface User {
   exchangeRate: number; // Rate from USDC to local currency
   isVerified: boolean;
   onboardingCompleted: boolean;
-  walletAddress?: string;
+  walletAddress?: string; // Legacy field for backward compatibility
+  wallets?: Array<{
+    id: string;
+    publicKey: string;
+    provider: string;
+    label: string;
+    isPrimary: boolean;
+    linkedAt: string;
+  }>;
   createdAt: Date;
   // Stellar wallet preferences
   externalWalletConnected?: boolean;
@@ -148,6 +156,14 @@ export interface StellarAccount {
   isReal?: boolean; // Flag to distinguish real wallet connections from demo
 }
 
+export interface LinkedWallet extends StellarAccount {
+  id: string; // Unique identifier for the linked wallet
+  label: string; // User-defined label for the wallet
+  isPrimary: boolean; // Whether this is the primary/default wallet
+  linkedAt: Date; // When the wallet was linked
+  lastSyncedAt?: Date; // When the balance was last synced
+}
+
 export interface WalletTransaction {
   id: string;
   hash?: string;
@@ -280,7 +296,8 @@ export interface Partner {
 
 export interface WalletConnectionState {
   isConnected: boolean;
-  account?: StellarAccount;
+  linkedWallets: LinkedWallet[];
+  activeWalletId?: string;
   provider?: WalletProvider;
   error?: string;
 }

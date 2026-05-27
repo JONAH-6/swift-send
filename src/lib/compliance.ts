@@ -8,6 +8,13 @@ export interface ComplianceResult {
   suggestedTier?: UserTier;
 }
 
+import { 
+  Region, 
+  COUNTRY_TO_REGION, 
+  REGION_COMPLIANCE_RULES, 
+  GeoComplianceCheck 
+} from '@/types/compliance';
+
 export interface TransactionRisk {
   score: number; // 0-100
   level: 'low' | 'medium' | 'high';
@@ -235,4 +242,105 @@ function getNextTier(currentTier: UserTier): UserTier | undefined {
     case 'premium':
       return undefined; // Already at highest tier
   }
+}
+
+/**
+ * Detect region from country code
+ */
+export function detectRegion(countryCode: string): Region {
+  const normalizedCode = countryCode.toUpperCase().trim();
+  return COUNTRY_TO_REGION[normalizedCode] || 'unknown';
+}
+
+/**
+ * Check geo-aware compliance for a transfer
+ */
+export function checkGeoCompliance(
+  amount: number,
+  destinationCountry: string
+): GeoComplianceCheck {
+  const region = detectRegion(destinationCountry);
+  const rules = REGION_COMPLIANCE_RULES[region];
+
+  const regionSpecificWarnings: string[] = [];
+  const regionSpecificRequirements: string[] = [];
+  const notices: string[] = [...rules.notices];
+  const restrictions: string[] = [...rules.restrictions];
+
+  let canProceed = true;
+  let enhancedVerificationRequired = false;
+  let reportingRequired = false;
+
+  // Check region-specific limits
+  if (amount > rules.limits.singleTransaction) {
+    canProceed = false;
+    regionSpecificRequirements.push(
+      `Amount exceeds regional single transaction limit of $${rules.limits.singleTransaction.toLocaleString()}`
+    );
+  }
+
+  // Check enhanced verification threshold
+  if (amount >= rules.enhancedVerificationThreshold) {
+    enhancedVerificationRequired = true;
+    regionSpecificWarnings.push(
+      `Enhanced verification required for amounts over $${rules.enhancedVerificationThreshold.toLocaleString()} in ${rules.regionName}`
+    );
+  }
+
+  // Check reporting threshold
+  if (amount >= rules.reportingThreshold) {
+    reportingRequired = true;
+    notices.push(
+      `This transfer may require regulatory reporting in ${rules.regionName}`
+    );
+  }
+
+  // Add region-specific requirements
+  regionSpecificRequirements.push(...rules.requirements);
+
+  return {
+    region,
+    regionName: rules.regionName,
+    canProceed,
+    regionSpecificWarnings,
+    regionSpecificRequirements,
+    notices,
+    restrictions,
+    enhancedVerificationRequired,
+    reportingRequired,
+    estimatedProcessingTime: rules.processingTime,
+  };
+}
+
+/**
+ * Combined compliance check including both tier and geo-aware rules
+ */
+export function checkFullCompliance(
+  user: UserComplianceData,
+  amount: number,
+  destinationCountry: string
+): {
+  tierResult: ComplianceResult;
+  geoResult: GeoComplianceCheck;
+  canProceed: boolean;
+  allWarnings: string[];
+  allRequirements: string[];
+} {
+  const tierResult = checkComplianceLimits(user, amount, destinationCountry);
+  const geoResult = checkGeoCompliance(amount, destinationCountry);
+
+  const canProceed = tierResult.allowed && geoResult.canProceed;
+  const allWarnings = [...tierResult.warnings, ...geoResult.regionSpecificWarnings];
+  const allRequirements = [
+    ...(tierResult.reason ? [tierResult.reason] : []),
+    ...geoResult.regionSpecificRequirements,
+  ];
+
+  return {
+    tierResult,
+    geoResult,
+    canProceed,
+    allWarnings,
+    allRequirements,
+  };
 }
