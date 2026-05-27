@@ -20,10 +20,29 @@ export interface NotificationDelivery {
   reason?: string;
 }
 
+export type NotificationCategory = 
+  | 'transaction'
+  | 'security'
+  | 'account'
+  | 'compliance'
+  | 'system'
+  | 'marketing';
+
+export type NotificationPriority = 'critical' | 'high' | 'medium' | 'low';
+
+export interface NotificationGroup {
+  category: NotificationCategory;
+  count: number;
+  latestTimestamp: Date;
+  notifications: UserNotification[];
+}
+
 export interface UserNotification {
   id: string;
   userId: string;
   type: 'success' | 'error' | 'warning' | 'info';
+  category: NotificationCategory;
+  priority: NotificationPriority;
   title: string;
   message: string;
   createdAt: Date;
@@ -31,6 +50,9 @@ export interface UserNotification {
   transferId?: string;
   metadata?: Record<string, unknown>;
   deliveries: NotificationDelivery[];
+  groupId?: string;
+  actionUrl?: string;
+  expiresAt?: Date;
 }
 
 export interface SpendingCategory {

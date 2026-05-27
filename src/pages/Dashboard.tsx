@@ -13,8 +13,11 @@ import { ComplianceDashboard } from '@/components/ComplianceDashboard';
 import { NotificationFeed } from '@/components/NotificationFeed';
 import { SpendingInsightsCard } from '@/components/SpendingInsightsCard';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { PhishingEducationPrompt } from '@/components/PhishingEducationPrompt';
+import { TrustedDeviceIndicator } from '@/components/TrustedDeviceIndicator';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
+import { useSecurity } from '@/contexts/SecurityContext';
 import { fetchNotifications, fetchSpendingInsights, fetchTransactions } from '@/lib/activity';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { Send, Plus, Bell, ArrowRight, Shield, Info, Zap, Clock, TrendingDown, Star, CheckCircle2, Globe2, Award, Wallet, ExternalLink, MapPin } from 'lucide-react';
@@ -24,7 +27,9 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { connectionState } = useWallet();
   const { rates, changes, lastUpdated } = useExchangeRate();
+  const { hasUnacknowledgedWarnings } = useSecurity();
   const [showWalletDialog, setShowWalletDialog] = useState(false);
+  const [showPhishingEducation, setShowPhishingEducation] = useState(hasUnacknowledgedWarnings);
 
   const transactionsQuery = useQuery({
     queryKey: ['activity', 'recent-transactions'],
@@ -87,6 +92,7 @@ export default function Dashboard() {
                 <Shield className="w-3 h-3 text-green-500" />
                 <span>FDIC Protected</span>
               </div>
+              <TrustedDeviceIndicator showLabel={false} variant="badge" />
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -458,6 +464,14 @@ export default function Dashboard() {
           )}
         </div>
       </main>
+
+      {/* Security Components */}
+      {showPhishingEducation && (
+        <PhishingEducationPrompt
+          onDismiss={() => setShowPhishingEducation(false)}
+          showOnMount={false}
+        />
+      )}
 
       <BottomNav />
 

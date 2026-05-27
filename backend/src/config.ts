@@ -159,7 +159,7 @@ export const config: AppConfig = {
 };
 
 export function validateConfig() {
-  const required = [
+  const required: Array<{ key: string; value: string | undefined }> = [
     { key: 'JWT_SECRET', value: config.auth.jwtSecret },
     { key: 'DATA_ENCRYPTION_KEY', value: config.encryption.key },
   ];

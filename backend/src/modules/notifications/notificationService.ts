@@ -2,6 +2,9 @@ import { getSession } from '../../auth/sessionStore';
 import type { EventBus } from '../../core/eventBus';
 import { deviceTokenService } from './deviceTokenService';
 import { sendMulticastPushNotification } from '../../utils/fcmMessaging';
+import { PriorityCalculator, type PriorityLevel, type PriorityMetadata } from './priorityCalculator';
+import { DeliveryStrategySelector } from './deliveryStrategySelector';
+import { NotificationGrouper, type NotificationGroup } from './notificationGrouper';
 
 export type NotificationType = 'success' | 'error' | 'warning' | 'info';
 export type NotificationChannel = 'email' | 'sms' | 'in_app';
@@ -28,8 +31,25 @@ export interface UserNotification {
   deliveries: NotificationDelivery[];
 }
 
+export interface UnreadCounts {
+  total: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+export interface EnrichedNotificationList {
+  items: (UserNotification & PriorityMetadata)[];
+  groups: NotificationGroup[];
+  unreadCounts: UnreadCounts;
+}
+
 export class NotificationService {
   private readonly store = new Map<string, UserNotification[]>();
+  private readonly priorityCalculator = new PriorityCalculator();
+  private readonly deliveryStrategySelector = new DeliveryStrategySelector();
+  private readonly notificationGrouper = new NotificationGrouper();
 
   constructor(
     private readonly eventBus: EventBus,
@@ -47,6 +67,39 @@ export class NotificationService {
     return {
       items,
       unreadCount: (this.store.get(userId) || []).filter((item) => !item.readAt).length,
+    };
+  }
+
+  /**
+   * Enhanced list method with priority, grouping, and unread counts.
+   */
+  listByUserIdEnriched(userId: string, limit = 10): EnrichedNotificationList {
+    const allNotifications = this.store.get(userId) || [];
+    
+    // Enrich with priority metadata
+    const enriched = allNotifications.map((n) =>
+      this.priorityCalculator.enrichWithPriority(n),
+    );
+
+    // Sort by priority then timestamp
+    const sorted = this.sortByPriorityAndTimestamp(enriched);
+
+    // Group notifications
+    const { groups, ungrouped } = this.notificationGrouper.groupNotifications(sorted);
+
+    // Sort groups by priority and timestamp
+    const sortedGroups = this.sortGroupsByPriorityAndTimestamp(groups);
+
+    // Calculate unread counts
+    const unreadCounts = this.calculateUnreadCounts(enriched);
+
+    // Apply limit to ungrouped items
+    const limitedItems = ungrouped.slice(0, Math.max(0, limit));
+
+    return {
+      items: limitedItems,
+      groups: sortedGroups,
+      unreadCounts,
     };
   }
 
@@ -225,5 +278,62 @@ export class NotificationService {
     return items.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
+  }
+
+  /**
+   * Sort notifications by priority (critical > high > medium > low) then timestamp (newest first).
+   */
+  private sortByPriorityAndTimestamp(
+    notifications: (UserNotification & PriorityMetadata)[],
+  ): (UserNotification & PriorityMetadata)[] {
+    const priorityOrder: Record<PriorityLevel, number> = {
+      critical: 0,
+      high: 1,
+      medium: 2,
+      low: 3,
+    };
+
+    return [...notifications].sort((a, b) => {
+      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+      if (priorityDiff !== 0) return priorityDiff;
+      
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }
+
+  /**
+   * Sort groups by representative notification priority and timestamp.
+   */
+  private sortGroupsByPriorityAndTimestamp(groups: NotificationGroup[]): NotificationGroup[] {
+    const priorityOrder: Record<PriorityLevel, number> = {
+      critical: 0,
+      high: 1,
+      medium: 2,
+      low: 3,
+    };
+
+    return [...groups].sort((a, b) => {
+      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+      if (priorityDiff !== 0) return priorityDiff;
+      
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }
+
+  /**
+   * Calculate unread counts per priority level.
+   */
+  private calculateUnreadCounts(
+    notifications: (UserNotification & PriorityMetadata)[],
+  ): UnreadCounts {
+    const unread = notifications.filter((n) => !n.readAt);
+    
+    return {
+      total: unread.length,
+      critical: unread.filter((n) => n.priority === 'critical').length,
+      high: unread.filter((n) => n.priority === 'high').length,
+      medium: unread.filter((n) => n.priority === 'medium').length,
+      low: unread.filter((n) => n.priority === 'low').length,
+    };
   }
 }

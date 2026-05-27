@@ -301,3 +301,39 @@ export interface WalletConnectionState {
   provider?: WalletProvider;
   error?: string;
 }
+
+// Anti-Phishing Security Types
+export interface TrustedDevice {
+  id: string;
+  deviceName: string;
+  deviceType: 'mobile' | 'desktop' | 'tablet';
+  browser?: string;
+  os?: string;
+  lastUsedAt: Date;
+  isCurrentDevice: boolean;
+  trustedAt: Date;
+}
+
+export interface PhishingWarning {
+  id: string;
+  type: 'suspicious_redirect' | 'unverified_recipient' | 'unusual_location' | 'new_device';
+  severity: 'low' | 'medium' | 'high';
+  message: string;
+  details?: string;
+  timestamp: Date;
+  acknowledged: boolean;
+}
+
+export interface SecurityContext {
+  trustedDevices: TrustedDevice[];
+  phishingWarnings: PhishingWarning[];
+  currentDeviceId?: string;
+  hasUnacknowledgedWarnings: boolean;
+}
+
+export interface RedirectCheckResult {
+  isSuspicious: boolean;
+  reason?: string;
+  confidence: number;
+  suggestedAction: 'block' | 'warn' | 'allow';
+}

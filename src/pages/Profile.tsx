@@ -6,6 +6,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import WalletConnectionDialog, { WalletStatusIndicator } from '@/components/WalletConnection';
 import { ComplianceDashboard } from '@/components/ComplianceDashboard';
+import { TrustedDeviceIndicator } from '@/components/TrustedDeviceIndicator';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
 import {
@@ -89,19 +90,26 @@ export default function Profile() {
   };
 
   const menuItems = [
-    { 
-      icon: Wallet, 
-      label: 'Wallet Settings', 
+    {
+      icon: Wallet,
+      label: 'Wallet Settings',
       onClick: () => {},
       rightContent: connectionState.isConnected ? (
         <WalletStatusIndicator />
       ) : null
     },
-    { 
-      icon: Shield, 
-      label: 'Account Verification & Limits', 
+    {
+      icon: Shield,
+      label: 'Account Verification & Limits',
       onClick: () => navigate('/verification'),
       description: 'View your account status and upgrade limits'
+    },
+    {
+      icon: Shield,
+      label: 'Trusted Devices',
+      onClick: () => {},
+      rightContent: <TrustedDeviceIndicator showLabel={false} variant="badge" />,
+      description: 'Manage devices that can access your account'
     },
     { icon: Bell, label: 'Notifications', onClick: () => {} },
     { icon: HelpCircle, label: 'Help & Support', onClick: () => {} },
@@ -299,6 +307,11 @@ export default function Profile() {
           {/* Compliance Dashboard */}
           <div className="animate-slide-up" style={{ animationDelay: '90ms' }}>
             <ComplianceDashboard compact={false} showUpgradePrompt={true} />
+          </div>
+
+          {/* Security & Trusted Devices */}
+          <div className="animate-slide-up" style={{ animationDelay: '95ms' }}>
+            <TrustedDeviceIndicator variant="card" />
           </div>
 
           {/* Menu Items */}

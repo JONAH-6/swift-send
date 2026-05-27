@@ -9,6 +9,7 @@ import { WalletProvider } from "./contexts/WalletContext";
 import { ComplianceProvider } from "./contexts/ComplianceContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { NetworkProvider } from "./contexts/NetworkContext";
+import { SecurityProvider } from "./contexts/SecurityContext";
 
 const Auth = lazy(() => import("./pages/Auth"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -154,10 +155,12 @@ const App = () => (
             <WalletProvider>
               <ComplianceProvider>
                 <NetworkProvider>
-                  <SonnerToaster />
-                  <BrowserRouter>
-                    <AppRoutes />
-                  </BrowserRouter>
+                  <SecurityProvider>
+                    <SonnerToaster />
+                    <BrowserRouter>
+                      <AppRoutes />
+                    </BrowserRouter>
+                  </SecurityProvider>
                 </NetworkProvider>
               </ComplianceProvider>
             </WalletProvider>
