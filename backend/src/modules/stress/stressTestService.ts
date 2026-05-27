@@ -1,0 +1,172 @@
+import { createLogger } from '../../logger';
+import type { TransferLifecycle } from '../transfers/transferLifecycle';
+
+export interface StressTestConfig {
+  concurrency: number;
+  totalTransfers: number;
+  amount: number;
+  userId: string;
+  walletId: string;
+}
+
+export interface StressTestResult {
+  runId: string;
+  config: StressTestConfig;
+  timestamp: string;
+  durationMs: number;
+  successful: number;
+  failed: number;
+  throughputPerSecond: number;
+  averageLatencyMs: number;
+  p95LatencyMs: number;
+  p99LatencyMs: number;
+  errors: string[];
+  perTransferResults: PerTransferResult[];
+}
+
+export interface PerTransferResult {
+  index: number;
+  transferId: string;
+  success: boolean;
+  latencyMs: number;
+  error?: string;
+}
+
+export class StressTestService {
+  private readonly logger;
+
+  constructor(private readonly transfers: TransferLifecycle) {
+    this.logger = createLogger({ component: 'stressTestService' });
+  }
+
+  async runStressTest(config: StressTestConfig): Promise<StressTestResult> {
+    const runId = `stress_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const errors: string[] = [];
+    const perTransferResults: PerTransferResult[] = [];
+    let successful = 0;
+    let failed = 0;
+
+    this.logger.info(
+      { concurrency: config.concurrency, total: config.totalTransfers },
+      'starting stress test',
+    );
+
+    const startTime = Date.now();
+
+    const batches: Array<Array<number>> = [];
+    for (let i = 0; i < config.totalTransfers; i += config.concurrency) {
+      batches.push(
+        Array.from({ length: Math.min(config.concurrency, config.totalTransfers - i) }, (_, j) => i + j),
+      );
+    }
+
+    for (const batch of batches) {
+      const batchResults = await Promise.allSettled(
+        batch.map((index) => this.executeSingleTransfer(config, index, runId)),
+      );
+
+      for (const result of batchResults) {
+        if (result.status === 'fulfilled') {
+          perTransferResults.push(result.value);
+          if (result.value.success) {
+            successful++;
+          } else {
+            failed++;
+            if (result.value.error) errors.push(result.value.error);
+          }
+        } else {
+          failed++;
+          errors.push(result.reason?.message || 'Unknown error');
+        }
+      }
+    }
+
+    const durationMs = Date.now() - startTime;
+    const latencies = perTransferResults
+      .filter((r) => r.success)
+      .map((r) => r.latencyMs)
+      .sort((a, b) => a - b);
+
+    const averageLatencyMs = latencies.length > 0
+      ? Math.round(latencies.reduce((sum, l) => sum + l, 0) / latencies.length)
+      : 0;
+
+    const p95LatencyMs = latencies.length > 0
+      ? latencies[Math.floor(latencies.length * 0.95)]
+      : 0;
+
+    const p99LatencyMs = latencies.length > 0
+      ? latencies[Math.floor(latencies.length * 0.99)]
+      : 0;
+
+    const result: StressTestResult = {
+      runId,
+      config,
+      timestamp: new Date().toISOString(),
+      durationMs,
+      successful,
+      failed,
+      throughputPerSecond: durationMs > 0
+        ? Math.round((successful / durationMs) * 1000 * 100) / 100
+        : 0,
+      averageLatencyMs,
+      p95LatencyMs,
+      p99LatencyMs,
+      errors: [...new Set(errors)].slice(0, 50),
+      perTransferResults,
+    };
+
+    this.logger.info(
+      {
+        runId,
+        durationMs,
+        successful,
+        failed,
+        throughputPerSecond: result.throughputPerSecond,
+        averageLatencyMs,
+      },
+      'stress test completed',
+    );
+
+    return result;
+  }
+
+  private async executeSingleTransfer(
+    config: StressTestConfig,
+    index: number,
+    runId: string,
+  ): Promise<PerTransferResult> {
+    const transferStart = Date.now();
+    const transferId = `stress_${runId}_${index}`;
+
+    try {
+      await this.transfers.createTransfer({
+        idempotencyKey: transferId,
+        userId: config.userId,
+        fromWalletId: config.walletId,
+        amount: config.amount,
+        currency: 'USDC',
+        recipient: {
+          type: 'wallet',
+          walletPublicKey: 'GSTRESSWALLETTEST12345678901234567890123456789012',
+          country: 'US',
+        },
+      });
+
+      return {
+        index,
+        transferId,
+        success: true,
+        latencyMs: Date.now() - transferStart,
+      };
+    } catch (err: unknown) {
+      return {
+        index,
+        transferId,
+        success: false,
+        latencyMs: Date.now() - transferStart,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+}

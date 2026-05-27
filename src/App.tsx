@@ -27,6 +27,7 @@ const VerificationFlow = lazy(() =>
     default: module.VerificationFlow,
   })),
 );
+const ActivityHeatmap = lazy(() => import("./pages/ActivityHeatmap"));
 
 const queryClient = new QueryClient();
 
@@ -128,6 +129,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <ComplianceInfo />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/activity-heatmap"
+          element={
+            <ProtectedRoute>
+              <ActivityHeatmap />
             </ProtectedRoute>
           }
         />

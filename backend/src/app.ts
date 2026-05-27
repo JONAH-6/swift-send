@@ -16,6 +16,9 @@ import notificationRoutes from "./routes/notifications";
 import complianceRoutes from "./routes/compliance";
 import errorRoutes from "./routes/errors";
 import feeRoutes from "./routes/fees";
+import reconciliationRoutes from "./routes/reconciliation";
+import auditRoutes from "./routes/audit";
+import stressTestRoutes from "./routes/stressTest";
 import { config } from "./config";
 import { logger } from "./logger";
 import { createContainer } from "./container";
@@ -86,6 +89,9 @@ export async function buildApp() {
   await app.register(complianceRoutes, { prefix });
   await app.register(errorRoutes, { prefix });
   await app.register(feeRoutes, { prefix });
+  await app.register(reconciliationRoutes, { prefix });
+  await app.register(auditRoutes, { prefix });
+  await app.register(stressTestRoutes, { prefix });
 
   app.addHook("onClose", async () => {
     logger.info("Server shutting down");

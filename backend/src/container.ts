@@ -19,6 +19,9 @@ import { RecurringPaymentService } from "./modules/recurring-payments/recurringP
 import { RecurringPaymentWorker } from "./modules/recurring-payments/recurringPaymentWorker";
 import { InMemoryRecurringPaymentRepository } from "./modules/recurring-payments/inMemoryRecurringPaymentRepository";
 import { ComplianceLogService } from "./modules/compliance/complianceLogService";
+import { AuditStorageService } from "./modules/compliance/auditStorageService";
+import { ReconciliationService } from "./modules/reconciliation/reconciliationService";
+import { StressTestService } from "./modules/stress/stressTestService";
 import { ErrorLogService } from "./modules/system/errorLogService";
 import { StellarFeeService } from "./services/stellarFeeService";
 import { registerTransferEventHandlers } from "./modules/transfers/transferEventHandlers";
@@ -43,6 +46,9 @@ export interface AppContainer {
     recurringPayments: RecurringPaymentService;
     errorLog: ErrorLogService;
     stellarFee: StellarFeeService;
+    reconciliation: ReconciliationService;
+    stressTest: StressTestService;
+    auditStorage: AuditStorageService;
   };
 }
 
@@ -83,6 +89,9 @@ export function createContainer(): AppContainer {
   );
   const recurringWorker = new RecurringPaymentWorker(recurringPayments);
   const complianceLog = new ComplianceLogService(eventBus);
+  const auditStorage = new AuditStorageService(eventBus);
+  const reconciliation = new ReconciliationService(transferRepository);
+  const stressTest = new StressTestService(transfers);
   const errorLog = new ErrorLogService(eventBus);
   const stellarFee = new StellarFeeService();
 
@@ -95,6 +104,16 @@ export function createContainer(): AppContainer {
     fraud,
     notifications,
   });
+  eventBus.subscribe<{ logId: string; userId: string; checkType: string; status: string; riskScore: number }>(
+    "compliance.log_created",
+    async (event) => {
+      const log = complianceLog.getAllLogs({ checkType: event.payload.checkType as any, limit: 1 });
+      if (log.length > 0) {
+        await auditStorage.storeAuditRecord(log[0]);
+      }
+    },
+  );
+
   eventBus.subscribe<{ userId: string }>(
     "notification.created",
     async (event) => {
@@ -125,6 +144,9 @@ export function createContainer(): AppContainer {
       recurringPayments,
       errorLog,
       stellarFee,
+      reconciliation,
+      stressTest,
+      auditStorage,
     },
   };
 }
