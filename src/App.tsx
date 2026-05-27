@@ -28,7 +28,7 @@ const VerificationFlow = lazy(() =>
     default: module.VerificationFlow,
   })),
 );
-const ActivityHeatmap = lazy(() => import("./pages/ActivityHeatmap"));
+
 
 const queryClient = new QueryClient();
 
@@ -150,10 +150,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/notification-preferences"
-          element={
-            <ProtectedRoute>
-              <NotificationPreferences />
+
             </ProtectedRoute>
           }
         />
