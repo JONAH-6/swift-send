@@ -165,7 +165,7 @@ export function validateConfig() {
   ];
 
   if (config.env === 'production') {
-    required.push({ key: 'STELLAR_DISTRIBUTION_SECRET', value: config.stellar.distributionSecret });
+    required.push({ key: 'STELLAR_DISTRIBUTION_SECRET', value: config.stellar.distributionSecret as string });
   }
 
   const missing = required.filter(r => !r.value).map(r => r.key);

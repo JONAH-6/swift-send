@@ -134,6 +134,102 @@ export class ActivityService {
     private readonly exporter: ExportService,
   ) {}
 
+  async getActivityHeatmap(
+    userId: string,
+    months = 3,
+  ): Promise<{
+    daily: Array<{ date: string; dayOfWeek: number; hour: number; count: number; total: number }>;
+    monthly: Array<{ month: string; total: number; count: number; avgPerDay: number }>;
+    summary: { totalTransactions: number; mostActiveDay: string; mostActiveHour: number; busiestDay: string };
+  }> {
+    const records = await this.repository.listByUserId(userId);
+    const transactions = records.map((record) => this.toTransactionDto(record));
+
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - months);
+
+    const filtered = transactions.filter((t) => new Date(t.timestamp) >= cutoff);
+
+    const dayHourMap = new Map<string, { date: string; dayOfWeek: number; hour: number; count: number; total: number }>();
+
+    for (const tx of filtered) {
+      const d = new Date(tx.timestamp);
+      const dateStr = d.toISOString().slice(0, 10);
+      const dayOfWeek = d.getUTCDay();
+      const hour = d.getUTCHours();
+      const key = `${dateStr}_${hour}`;
+
+      const existing = dayHourMap.get(key) || { date: dateStr, dayOfWeek, hour, count: 0, total: 0 };
+      existing.count += 1;
+      existing.total += tx.amount;
+      dayHourMap.set(key, existing);
+    }
+
+    const daily = Array.from(dayHourMap.values()).sort((a, b) => {
+      const dateCmp = a.date.localeCompare(b.date);
+      return dateCmp !== 0 ? dateCmp : a.hour - b.hour;
+    });
+
+    const monthlyMap = new Map<string, { total: number; count: number }>();
+    for (const tx of filtered) {
+      const d = new Date(tx.timestamp);
+      const monthKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      const existing = monthlyMap.get(monthKey) || { total: 0, count: 0 };
+      existing.total += tx.amount;
+      existing.count += 1;
+      monthlyMap.set(monthKey, existing);
+    }
+
+    const monthly = Array.from(monthlyMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([monthKey, data]) => {
+        const [y, m] = monthKey.split('-');
+        const daysInMonth = new Date(Number(y), Number(m), 0).getDate();
+        return {
+          month: monthKey,
+          total: round2(data.total),
+          count: data.count,
+          avgPerDay: round2(data.count / daysInMonth),
+        };
+      });
+
+    let mostActiveDay = '';
+    let maxDayCount = 0;
+    const dayCounts = new Map<string, number>();
+    for (const entry of daily) {
+      const c = (dayCounts.get(entry.date) || 0) + entry.count;
+      dayCounts.set(entry.date, c);
+      if (c > maxDayCount) {
+        maxDayCount = c;
+        mostActiveDay = entry.date;
+      }
+    }
+
+    const hourCounts = new Array(24).fill(0);
+    for (const entry of daily) {
+      hourCounts[entry.hour] += entry.count;
+    }
+    const mostActiveHour = hourCounts.indexOf(Math.max(...hourCounts));
+
+    const dayOfWeekNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dowCounts = new Array(7).fill(0);
+    for (const entry of daily) {
+      dowCounts[entry.dayOfWeek] += entry.count;
+    }
+    const busiestDay = dayOfWeekNames[dowCounts.indexOf(Math.max(...dowCounts))];
+
+    return {
+      daily,
+      monthly,
+      summary: {
+        totalTransactions: filtered.length,
+        mostActiveDay,
+        mostActiveHour,
+        busiestDay,
+      },
+    };
+  }
+
   async listTransactions(userId: string, limit = 50): Promise<ActivityTransactionDto[]> {
     const cacheKey = `activity:transactions:${userId}:${limit}`;
     const cached = await getCachedJson<ActivityTransactionDto[]>(cacheKey);

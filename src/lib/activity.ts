@@ -143,6 +143,22 @@ export async function searchTransactions(
   };
 }
 
+export interface ActivityHeatmapData {
+  daily: Array<{ date: string; dayOfWeek: number; hour: number; count: number; total: number }>;
+  monthly: Array<{ month: string; total: number; count: number; avgPerDay: number }>;
+  summary: {
+    totalTransactions: number;
+    mostActiveDay: string;
+    mostActiveHour: number;
+    busiestDay: string;
+  };
+}
+
+export async function fetchActivityHeatmap(months = 3): Promise<ActivityHeatmapData> {
+  const response = await apiFetch(`/activity/heatmap?months=${months}`);
+  return requireJson<ActivityHeatmapData>(response, 'Could not load activity heatmap');
+}
+
 export async function fetchSpendingInsights(): Promise<SpendingInsights> {
   const response = await apiFetch('/activity/spending-insights');
   const body = await requireJson<SpendingInsightsDto>(response, 'Could not load spending insights');

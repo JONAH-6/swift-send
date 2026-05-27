@@ -104,14 +104,7 @@ export default function Profile() {
       onClick: () => navigate('/verification'),
       description: 'View your account status and upgrade limits'
     },
-    {
-      icon: Shield,
-      label: 'Trusted Devices',
-      onClick: () => {},
-      rightContent: <TrustedDeviceIndicator showLabel={false} variant="badge" />,
-      description: 'Manage devices that can access your account'
-    },
-    { icon: Bell, label: 'Notifications', onClick: () => {} },
+    { icon: Bell, label: 'Notifications', onClick: () => navigate('/notification-preferences'), description: 'Manage email, SMS and push alert preferences' },
     { icon: HelpCircle, label: 'Help & Support', onClick: () => {} },
   ];
 

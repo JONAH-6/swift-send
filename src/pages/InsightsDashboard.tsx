@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart,
@@ -12,15 +13,18 @@ import {
   Cell,
   Legend,
 } from 'recharts';
-import { TrendingUp, DollarSign, CheckCircle2, XCircle, BarChart3, Tag } from 'lucide-react';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SkeletonInsightsGrid, SkeletonBarChart } from '@/components/SkeletonLoaders';
 import { ComparativeInsights } from '@/components/ComparativeInsights';
 import { BottomNav } from '@/components/BottomNav';
+import { Button } from '@/components/ui/button';
 import { fetchSpendingInsights } from '@/lib/activity';
+import { useNavigate } from 'react-router-dom';
 import type { SpendingInsights } from '@/types/activity';
+import { TRANSFER_PURPOSES, getPurposeByCode } from '@/data/transferPurposes';
 
 const CATEGORY_COLORS = [
   'hsl(var(--primary))',
@@ -32,6 +36,7 @@ const CATEGORY_COLORS = [
 ];
 
 export default function InsightsDashboard() {
+  const navigate = useNavigate();
   const { data, isLoading, error } = useQuery<SpendingInsights>({
     queryKey: ['spending-insights'],
     queryFn: fetchSpendingInsights,
@@ -58,9 +63,11 @@ export default function InsightsDashboard() {
         ) : (
           <>
             <SummaryCards summary={data?.summary} isLoading={isLoading} />
+            <HeatmapCard />
             <MonthlyTrendsChart data={data?.monthlyTransferData} isLoading={isLoading} />
             <ComparativeInsights data={data?.monthlyTransferData} isLoading={isLoading} />
             <CategoryBreakdownChart data={data?.categoryData} isLoading={isLoading} />
+            <PurposeBreakdownChart topExpenses={data?.topExpenses} />
             <TopExpensesList expenses={data?.topExpenses} isLoading={isLoading} />
           </>
         )}
@@ -128,6 +135,35 @@ function SummaryCards({
         </Card>
       ))}
     </div>
+  );
+}
+
+function HeatmapCard() {
+  const navigate = useNavigate();
+  return (
+    <Card
+      className="border-border/60 cursor-pointer hover:bg-accent/50 transition-colors"
+      onClick={() => navigate('/activity-heatmap')}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Activity Heatmap</p>
+              <p className="text-sm text-muted-foreground">
+                Visualize spending patterns by time and day
+              </p>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" className="shrink-0">
+            View
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -305,6 +341,60 @@ function TopExpensesList({
             ))}
           </ul>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PurposeBreakdownChart({
+  topExpenses,
+}: {
+  topExpenses?: SpendingInsights['topExpenses'];
+}) {
+  const purposeData = useMemo(() => {
+    if (!topExpenses || topExpenses.length === 0) return [];
+    const map = new Map<string, number>();
+    for (const expense of topExpenses) {
+      const purpose = expense.category ? getPurposeByCode(expense.category) : null;
+      const label = purpose?.label || expense.category || 'Other';
+      map.set(label, (map.get(label) ?? 0) + expense.amount);
+    }
+    return Array.from(map.entries())
+      .map(([category, value]) => ({ category, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [topExpenses]);
+
+  if (purposeData.length === 0) return null;
+
+  return (
+    <Card className="border-border/60">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <List className="w-4 h-4 text-primary" />
+          Transfers by Purpose
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {purposeData.map((item) => {
+            const total = purposeData.reduce((sum, d) => sum + d.value, 0);
+            const percentage = total > 0 ? (item.value / total) * 100 : 0;
+            return (
+              <div key={item.category} className="flex items-center gap-3">
+                <span className="text-sm text-foreground w-32 truncate">{item.category}</span>
+                <div className="flex-1 h-4 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground w-20 text-right">
+                  ${item.value.toFixed(2)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );

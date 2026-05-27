@@ -122,6 +122,7 @@ export interface Transaction {
   exchangeRate?: number;
   destinationCurrency?: string;
   category?: string;
+  purposeCode?: string;
   notes?: string;
   tags?: string[];
   txHash?: string;

@@ -1,136 +1,83 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { getRatesWithCache, currencyRateCache, DEFAULT_FX_RATES, type FxRates } from '@/lib/currencyRateCache';
 
-const CACHE_KEY = 'swift_send_fx_rates';
-const CACHE_EXPIRY = 60 * 60 * 1000; // 1 hour
-const POLL_INTERVAL = 30 * 1000; // 30 seconds
+const POLL_INTERVAL_MS = 5 * 60 * 1000; // re-check every 5 minutes
 
-interface FxRates {
-  [key: string]: number;
-}
-
-interface CacheData {
-  rates: FxRates;
-  timestamp: number;
-}
-
-const DEFAULT_RATES: FxRates = {
-  USD: 1.0,
-  MXN: 17.25,
-  PHP: 56.5,
-  GTQ: 7.85,
-  EUR: 0.92,
-  GBP: 0.79,
-};
-
-function calculateChanges(prevRates: FxRates, nextRates: FxRates): Record<string, number> {
+function calculateChanges(prev: FxRates, next: FxRates): Record<string, number> {
   const changes: Record<string, number> = {};
-  for (const currency of Object.keys(nextRates)) {
-    if (typeof prevRates[currency] === 'number') {
-      const previous = prevRates[currency];
-      const current = nextRates[currency];
-      if (previous > 0) {
-        changes[currency] = ((current - previous) / previous) * 100;
-      }
+  for (const currency of Object.keys(next)) {
+    const previous = prev[currency];
+    const current = next[currency];
+    if (typeof previous === 'number' && previous > 0) {
+      changes[currency] = ((current - previous) / previous) * 100;
     }
   }
   return changes;
 }
 
 export function useExchangeRate() {
-  const [rates, setRates] = useState<FxRates>(DEFAULT_RATES);
+  const [rates, setRates] = useState<FxRates>(() => {
+    const cached = currencyRateCache.read();
+    return cached ? cached.rates : DEFAULT_FX_RATES;
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [changes, setChanges] = useState<Record<string, number>>({});
-  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(() => {
+    const cached = currencyRateCache.read();
+    return cached ? cached.fetchedAt : null;
+  });
+
+  const applyRates = useCallback((incoming: FxRates) => {
+    setRates((prev) => {
+      setChanges(calculateChanges(prev, incoming));
+      return incoming;
+    });
+    setLastUpdated(Date.now());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    let intervalId: number | undefined;
-    let previousRates: FxRates | null = null;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
 
-    const saveCache = (ratesToCache: FxRates) => {
+    const refresh = async () => {
       try {
-        localStorage.setItem(
-          CACHE_KEY,
-          JSON.stringify({ rates: ratesToCache, timestamp: Date.now() }),
-        );
-      } catch {
-        // Ignore localStorage failures
-      }
-    };
-
-    const loadCachedRates = (): FxRates | null => {
-      if (typeof window === 'undefined') {
-        return null;
-      }
-      try {
-        const cached = window.localStorage.getItem(CACHE_KEY);
-        if (!cached) return null;
-        const parsed = JSON.parse(cached) as CacheData;
-        if (Date.now() - parsed.timestamp < CACHE_EXPIRY) {
-          return parsed.rates;
-        }
-      } catch {
-        // Ignore invalid cache state
-      }
-      return null;
-    };
-
-    const fetchRates = async () => {
-      try {
-        const cachedRates = loadCachedRates();
-        if (cachedRates) {
-          previousRates = cachedRates;
-          if (!cancelled) {
-            setRates(cachedRates);
-            setLoading(false);
-          }
-        }
-
-        const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-        if (!response.ok) throw new Error('Failed to fetch exchange rates');
-        const data = await response.json();
-        const newRates = data.rates as FxRates;
-
+        const fresh = await getRatesWithCache((bgRates) => {
+          if (!cancelled) applyRates(bgRates);
+        });
         if (!cancelled) {
-          setRates(newRates);
+          applyRates(fresh);
           setError(null);
-          setLastUpdated(Date.now());
-
-          if (previousRates) {
-            setChanges(calculateChanges(previousRates, newRates));
-          }
-
-          saveCache(newRates);
           setLoading(false);
-          previousRates = newRates;
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
-          console.error('Error fetching FX rates:', err);
-          setError('Using fallback rates');
+          setError('Using cached rates');
           setLoading(false);
         }
       }
+
+      if (!cancelled) {
+        timerId = setTimeout(refresh, POLL_INTERVAL_MS);
+      }
     };
 
-    void fetchRates();
-    intervalId = window.setInterval(() => {
-      void fetchRates();
-    }, POLL_INTERVAL);
+    void refresh();
 
     return () => {
       cancelled = true;
-      if (intervalId) {
-        window.clearInterval(intervalId);
-      }
+      if (timerId) clearTimeout(timerId);
     };
+  }, [applyRates]);
+
+  const convert = useCallback(
+    (amount: number, toCurrency: string) => amount * (rates[toCurrency] ?? 1),
+    [rates],
+  );
+
+  const invalidateCache = useCallback(() => {
+    currencyRateCache.invalidate();
   }, []);
 
-  const convert = (amount: number, toCurrency: string) => {
-    const rate = rates[toCurrency] || 1;
-    return amount * rate;
-  };
-
-  return { rates, loading, error, convert, changes, lastUpdated };
+  return { rates, loading, error, convert, changes, lastUpdated, invalidateCache };
 }

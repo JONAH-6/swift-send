@@ -23,11 +23,13 @@ const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ComplianceInfo = lazy(() => import("./pages/ComplianceInfo"));
 const Refunds = lazy(() => import("./pages/Refunds"));
+const NotificationPreferences = lazy(() => import("./pages/NotificationPreferences"));
 const VerificationFlow = lazy(() =>
   import("./components/VerificationFlow").then((module) => ({
     default: module.VerificationFlow,
   })),
 );
+
 
 const queryClient = new QueryClient();
 
@@ -133,10 +135,23 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/activity-heatmap"
+          element={
+            <ProtectedRoute>
+              <ActivityHeatmap />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/refunds"
           element={
             <ProtectedRoute>
               <Refunds />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+
             </ProtectedRoute>
           }
         />
