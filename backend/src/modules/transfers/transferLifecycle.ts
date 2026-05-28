@@ -276,6 +276,10 @@ export class TransferLifecycle {
     return this.repository.listByUserId(userId);
   }
 
+  async listAll() {
+    return this.repository.listAll();
+  }
+
   private enforceVelocityLimits(
     command: CreateTransferCommand,
     tier: { maxTransactionsPerMinute: number; maxTransactionsPerHour: number },

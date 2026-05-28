@@ -55,6 +55,8 @@ export interface QueueJobStatus {
   created_at: string;
   started_at?: string;
   completed_at?: string;
+  retries?: number;
+  max_retries?: number;
 }
 
 export interface TransferFeeEstimate {

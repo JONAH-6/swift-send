@@ -93,6 +93,22 @@ export async function buildApp() {
   await app.register(auditRoutes, { prefix });
   await app.register(stressTestRoutes, { prefix });
 
+  app.addHook("onResponse", async (request, reply) => {
+    const start = request.elapsedTime ?? 0;
+    const latencyMs = Math.round(reply.elapsedTime ?? 0);
+    if (latencyMs > 0) {
+      try {
+        container.services.operationalMetrics.recordLatency(
+          request.url,
+          latencyMs,
+          reply.statusCode,
+        );
+      } catch {
+        // metrics recording is non-critical
+      }
+    }
+  });
+
   app.addHook("onClose", async () => {
     logger.info("Server shutting down");
     await closeRedisClient();

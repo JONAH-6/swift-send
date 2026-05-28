@@ -157,6 +157,8 @@ export default async function transferRoutes(fastify: FastifyInstance) {
       created_at: job.createdAt,
       started_at: job.startedAt,
       completed_at: job.completedAt,
+      retries: job.retries,
+      max_retries: 2,
     };
   });
 
@@ -287,6 +289,7 @@ function formatTransferResponse(record: TransferRecord) {
         }
       : undefined,
     last_error: record.lastError,
+    processing_attempts: record.processingAttempts,
     available_balance: getSessionUserBalance(record.userId),
     created_at: record.createdAt,
     updated_at: record.updatedAt,
