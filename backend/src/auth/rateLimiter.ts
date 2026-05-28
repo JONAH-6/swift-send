@@ -224,3 +224,9 @@ export const resendRateLimiter = new RateLimiter({
   windowMs: 60 * 60 * 1000, // 1 hour
   lockoutDurationMs: 60 * 60 * 1000, // 1 hour
 });
+
+export const recoveryRateLimiter = new RateLimiter({
+  maxAttempts: 5,
+  windowMs: 30 * 60 * 1000, // 30 minutes
+  lockoutDurationMs: 60 * 60 * 1000, // 1 hour
+});

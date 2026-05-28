@@ -25,6 +25,13 @@ interface AuthResponse {
   session: AuthSessionInfo;
 }
 
+interface StepUpResponse {
+  ok: boolean;
+  authUser: AuthUser;
+  user?: UserDto | null;
+  session: AuthSessionInfo;
+}
+
 async function requireJson<T>(response: Response, fallbackMessage: string): Promise<T> {
   let body: unknown;
   try {
@@ -83,6 +90,14 @@ export async function verifyCode(code: string): Promise<AuthResponse> {
   }
 
   return requireJson<AuthResponse>(response, 'Unable to verify code');
+}
+
+export async function stepUpVerifyCode(code: string): Promise<StepUpResponse> {
+  const response = await apiFetch('/auth/step-up/verify', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+  return requireJson<StepUpResponse>(response, 'Unable to complete verification');
 }
 
 export async function resendCode(): Promise<{ ok: boolean; message: string }> {

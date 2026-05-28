@@ -10,6 +10,7 @@ import { ComplianceProvider } from "./contexts/ComplianceContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { NetworkProvider } from "./contexts/NetworkContext";
 import { SecurityProvider } from "./contexts/SecurityContext";
+import { BandwidthProvider } from "./contexts/BandwidthContext";
 
 const Auth = lazy(() => import("./pages/Auth"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -32,6 +33,7 @@ const AdminSettlementAnalytics = lazy(() => import("./pages/AdminSettlementAnaly
 const AdminStellarMonitor = lazy(() => import("./pages/AdminStellarMonitor"));
 const AdminFailureAlerts = lazy(() => import("./pages/AdminFailureAlerts"));
 const AdminOperationalMetrics = lazy(() => import("./pages/AdminOperationalMetrics"));
+const AdminRegulatoryReports = lazy(() => import("./pages/AdminRegulatoryReports"));
 const VerificationFlow = lazy(() =>
   import("./components/VerificationFlow").then((module) => ({
     default: module.VerificationFlow,
@@ -230,6 +232,14 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin/reports"
+          element={
+            <ProtectedRoute>
+              <AdminRegulatoryReports />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
@@ -241,20 +251,22 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <LanguageProvider>
         <TooltipProvider>
-          <AuthProvider>
-            <WalletProvider>
-              <ComplianceProvider>
-                <NetworkProvider>
-                  <SecurityProvider>
-                    <SonnerToaster />
-                    <BrowserRouter>
-                      <AppRoutes />
-                    </BrowserRouter>
-                  </SecurityProvider>
-                </NetworkProvider>
-              </ComplianceProvider>
-            </WalletProvider>
-          </AuthProvider>
+          <BandwidthProvider>
+            <AuthProvider>
+              <WalletProvider>
+                <ComplianceProvider>
+                  <NetworkProvider>
+                    <SecurityProvider>
+                      <SonnerToaster />
+                      <BrowserRouter>
+                        <AppRoutes />
+                      </BrowserRouter>
+                    </SecurityProvider>
+                  </NetworkProvider>
+                </ComplianceProvider>
+              </WalletProvider>
+            </AuthProvider>
+          </BandwidthProvider>
         </TooltipProvider>
       </LanguageProvider>
     </ThemeProvider>

@@ -38,6 +38,14 @@ export interface Session {
   verified: boolean;
   hasWallet: boolean;
   onboardingCompleted: boolean;
+  /**
+   * When true, the session must complete a step-up verification challenge
+   * before accessing protected routes (forced re-authentication).
+   */
+  reauthRequired?: boolean;
+  reauthReason?: 'new_ip' | 'new_device' | 'risk';
+  reauthFactors?: string[];
+  reauthAssessedAt?: string;
   role?: UserRole;
   user?: PublicUser;
   metadata: SessionMetadata;
