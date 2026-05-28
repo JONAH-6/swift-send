@@ -165,6 +165,21 @@ export class NotificationService {
     });
   }
 
+  async notifySecurityEvent(payload: {
+    userId: string;
+    kind: 'reauth_required' | 'access_blocked' | 'step_up_completed';
+    title: string;
+    message: string;
+    metadata?: Record<string, unknown>;
+  }) {
+    return this.createForUser(payload.userId, {
+      type: payload.kind === 'step_up_completed' ? 'success' : payload.kind === 'access_blocked' ? 'error' : 'warning',
+      title: payload.title,
+      message: payload.message,
+      metadata: { kind: payload.kind, ...(payload.metadata ?? {}) },
+    });
+  }
+
   private async createForUser(
     userId: string,
     input: {

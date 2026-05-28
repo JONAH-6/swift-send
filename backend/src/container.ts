@@ -54,6 +54,11 @@ export interface AppContainer {
     stellarFee: StellarFeeService;
     adminAlerts: AdminAlertService;
     operationalMetrics: OperationalMetricsService;
+    auditStorage: AuditStorageService;
+    authRiskEngine: AuthRiskEngine;
+    deadLetterQueue: DeadLetterQueue;
+    settlementAnalytics: SettlementAnalyticsService;
+    stellarMonitor: StellarMonitorService;
 
   };
 }
@@ -159,6 +164,11 @@ export function createContainer(): AppContainer {
       stellarFee,
       adminAlerts,
       operationalMetrics,
+      auditStorage,
+      authRiskEngine,
+      deadLetterQueue,
+      settlementAnalytics,
+      stellarMonitor,
 
     },
   };

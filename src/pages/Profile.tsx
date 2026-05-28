@@ -30,12 +30,16 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
+import { useBandwidth } from '@/contexts/BandwidthContext';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 export default function Profile() {
   const navigate = useNavigate();
   const { resolvedTheme, setTheme } = useTheme();
   const { user, logout } = useAuth();
   const { connectionState, disconnectWallet } = useWallet();
+  const { mode, setMode, isLowBandwidth } = useBandwidth();
   const [showWalletDialog, setShowWalletDialog] = useState(false);
 
   const handleLogout = () => {
@@ -190,6 +194,19 @@ export default function Profile() {
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">Appearance</p>
                 <ThemeToggle />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label className="text-sm text-muted-foreground">Low-bandwidth mode</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Reduce animations and data usage
+                  </p>
+                </div>
+                <Switch
+                  checked={isLowBandwidth}
+                  onCheckedChange={(checked) => setMode(checked ? 'low' : 'auto')}
+                  aria-label="Toggle low-bandwidth mode"
+                />
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">

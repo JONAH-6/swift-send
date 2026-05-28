@@ -19,6 +19,8 @@ import feeRoutes from "./routes/fees";
 import reconciliationRoutes from "./routes/reconciliation";
 import auditRoutes from "./routes/audit";
 import stressTestRoutes from "./routes/stressTest";
+import walletRoutes from "./routes/wallets";
+import reportRoutes from "./routes/reports";
 import { config } from "./config";
 import { logger } from "./logger";
 import { createContainer } from "./container";
@@ -86,6 +88,8 @@ export async function buildApp() {
   await app.register(contractRoutes, { prefix });
   await app.register(refundsRoutes, { prefix });
   await app.register(notificationRoutes, { prefix });
+  await app.register(walletRoutes, { prefix });
+  await app.register(reportRoutes, { prefix });
   await app.register(complianceRoutes, { prefix });
   await app.register(errorRoutes, { prefix });
   await app.register(feeRoutes, { prefix });

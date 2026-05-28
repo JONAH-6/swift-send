@@ -9,6 +9,8 @@ import {
   getSessionInfo,
   isMariaIdentifier,
   saveSession,
+  trustIp,
+  updateLastKnownIp,
 } from '../auth/sessionStore';
 import { authenticate } from '../middleware/authenticate';
 import { deleteCachedKey, getCachedJson, setCachedJson } from '../utils/redisCache';
@@ -19,6 +21,10 @@ interface LoginBody {
 }
 
 interface VerifyBody {
+  code: string;
+}
+
+interface StepUpVerifyBody {
   code: string;
 }
 
@@ -223,6 +229,81 @@ export default async function authRoutes(fastify: FastifyInstance) {
       session: getSessionInfo(session),
       user: session.user ?? null,
       onboardingRequired: session.verified && !session.onboardingCompleted && !session.user,
+    });
+  });
+
+  /**
+   * Step-up verification used for forced re-authentication when session anomaly is detected.
+   * For now, this reuses the same OTP-style code logic as /auth/verify.
+   */
+  fastify.post<{ Body: StepUpVerifyBody }>('/auth/step-up/verify', { preHandler: [authenticate] }, async (request, reply) => {
+    const code = request.body?.code?.trim();
+    if (!code) {
+      return reply.status(400).send({ error: 'code is required' });
+    }
+
+    const token = request.user as JwtSessionPayload;
+    const session = getSession(token.sub);
+    if (!session) {
+      clearAuthCookie(reply);
+      return reply.status(401).send({ error: 'Session expired' });
+    }
+
+    if (!session.verified) {
+      return reply.status(403).send({ error: 'Verification required' });
+    }
+
+    if (!isValidVerificationCode(code)) {
+      fastify.container.services.authRiskEngine.recordAuthEvent({
+        userId: session.id,
+        type: 'step_up',
+        ipAddress: request.ip,
+        userAgent: request.headers['user-agent'],
+        success: false,
+        timestamp: new Date().toISOString(),
+      });
+      return reply.status(400).send({ error: 'Invalid verification code' });
+    }
+
+    session.reauthRequired = false;
+    session.reauthReason = undefined;
+    session.reauthFactors = undefined;
+    session.reauthAssessedAt = undefined;
+
+    // Trust the current client context.
+    updateLastKnownIp(session.id, request.ip);
+    trustIp(session.id, request.ip);
+
+    saveSession(session);
+    await deleteCachedKey(`auth:me:${session.id}`);
+    await setAuthCookie(reply, session);
+
+    fastify.container.services.authRiskEngine.recordAuthEvent({
+      userId: session.id,
+      type: 'step_up',
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'],
+      success: true,
+      timestamp: new Date().toISOString(),
+    });
+
+    try {
+      await fastify.container.services.notification.notifySecurityEvent({
+        userId: session.id,
+        kind: 'step_up_completed',
+        title: 'Verification complete',
+        message: 'You’re verified and can continue using your account.',
+        metadata: { ip: request.ip },
+      });
+    } catch {
+      // best-effort
+    }
+
+    return reply.send({
+      ok: true,
+      authUser: sessionToAuthUser(session),
+      session: getSessionInfo(session),
+      user: session.user ?? null,
     });
   });
 

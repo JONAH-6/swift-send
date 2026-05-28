@@ -1,4 +1,4 @@
-import { Shield, AlertTriangle, Activity, BarChart3, Server, FileWarning, Bell, Gauge, TrendingUp } from "lucide-react";
+import { Shield, AlertTriangle, Activity, BarChart3, Server, FileWarning, Bell, Gauge, FileText, Trendingup } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 
@@ -58,6 +58,13 @@ const adminCards = [
     icon: Gauge,
     href: "/admin/metrics",
     color: "text-blue-500",
+  },
+  {
+    title: "Regulatory Reports",
+    description: "Generate compliance and transaction summary exports",
+    icon: FileText,
+    href: "/admin/reports",
+    color: "text-green-500",
   },
 ];
 
