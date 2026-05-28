@@ -130,6 +130,9 @@ export interface Transaction {
   risk?: TransactionRiskSummary;
   isOptimistic?: boolean;
   isStarred?: boolean;
+  retryCount?: number;
+  maxRetries?: number;
+  lastError?: string;
 }
 
 export interface FeeBreakdown {

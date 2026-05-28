@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { CheckCircle2, Circle, Clock, Loader2, XCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, Loader2, XCircle, AlertCircle, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TransactionStatus } from '@/types';
 
@@ -34,7 +34,7 @@ const TIMELINE_STEPS: TimelineStep[] = [
 
 type StepState = 'completed' | 'active' | 'pending' | 'failed' | 'cancelled';
 
-function getStepStates(status: TransactionStatus): StepState[] {
+function getStepStates(status: TransactionStatus, retries?: number): StepState[] {
   if (status === 'failed') {
     return ['completed', 'completed', 'failed', 'pending'];
   }
@@ -69,10 +69,14 @@ function StepIcon({ state }: { state: StepState }) {
 interface TransactionStatusTimelineProps {
   status: TransactionStatus;
   className?: string;
+  retryCount?: number;
+  maxRetries?: number;
+  lastError?: string;
 }
 
-function TransactionStatusTimelineComponent({ status, className }: TransactionStatusTimelineProps) {
-  const stepStates = getStepStates(status);
+function TransactionStatusTimelineComponent({ status, className, retryCount, maxRetries, lastError }: TransactionStatusTimelineProps) {
+  const stepStates = getStepStates(status, retryCount);
+  const hasRetries = retryCount !== undefined && retryCount > 0;
 
   return (
     <div className={cn('space-y-1', className)}>
@@ -117,6 +121,35 @@ function TransactionStatusTimelineComponent({ status, className }: TransactionSt
           );
         })}
       </div>
+
+      {hasRetries && (
+        <div className="mt-3 p-3 rounded-lg border border-amber-200 bg-amber-50/80 dark:border-amber-800 dark:bg-amber-900/20">
+          <div className="flex items-center gap-2 mb-1">
+            <RotateCcw className="w-4 h-4 text-amber-600" />
+            <span className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+              Retry Status
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-2 rounded-full bg-amber-200 dark:bg-amber-800">
+              <div
+                className="h-2 rounded-full bg-amber-500"
+                style={{
+                  width: `${maxRetries && maxRetries > 0 ? Math.min(100, (retryCount / maxRetries) * 100) : 0}%`,
+                }}
+              />
+            </div>
+            <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+              {retryCount}/{maxRetries || 3} retries
+            </span>
+          </div>
+          {lastError && (
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+              Last error: {lastError}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -203,4 +203,93 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     const limit = Number(query.limit) || 50;
     return fastify.container.services.authRiskEngine.getSuspiciousActivity(limit);
   });
+
+  /** Admin Alerts */
+
+  /** GET /admin/alerts — list admin alerts */
+  fastify.get<{ Querystring: { limit?: string; severity?: string } }>(
+    '/admin/alerts',
+    adminGuards,
+    async (req) => {
+      const query = req.query;
+      const limit = Number(query.limit) || 50;
+      const severity = query.severity as 'critical' | 'high' | 'medium' | 'low' | undefined;
+      return fastify.container.services.adminAlerts.getAlerts(limit, severity);
+    },
+  );
+
+  /** GET /admin/alerts/stats — alert statistics */
+  fastify.get('/admin/alerts/stats', adminGuards, async () => {
+    return fastify.container.services.adminAlerts.getAlertStats();
+  });
+
+  /** POST /admin/alerts/:alertId/acknowledge — acknowledge an alert */
+  fastify.post<{ Params: { alertId: string } }>(
+    '/admin/alerts/:alertId/acknowledge',
+    adminGuards,
+    async (req, reply) => {
+      const payload = req.user as JwtSessionPayload;
+      const alert = fastify.container.services.adminAlerts.acknowledgeAlert(req.params.alertId, payload.sub);
+      if (!alert) {
+        return reply.code(404).send({ error: 'Alert not found' });
+      }
+      return alert;
+    },
+  );
+
+  /** GET /admin/alerts/transfer/:transferId — alerts by transfer */
+  fastify.get<{ Params: { transferId: string } }>(
+    '/admin/alerts/transfer/:transferId',
+    adminGuards,
+    async (req) => {
+      return fastify.container.services.adminAlerts.getAlertsByTransferId(req.params.transferId);
+    },
+  );
+
+  /** Transfer Retry State */
+
+  /** GET /admin/transfers/retry-history — transfers with retry info */
+  fastify.get('/admin/transfers/retry-history', adminGuards, async (req) => {
+    const query = req.query as { limit?: string };
+    const limit = Number(query.limit) || 50;
+    const all = await fastify.container.services.transfers.listAll();
+    const withRetries = all
+      .filter((t) => t.processingAttempts > 0 || t.lastError)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, limit)
+      .map((t) => ({
+        id: t.id,
+        userId: t.userId,
+        amount: t.amount,
+        currency: t.currency,
+        state: t.state,
+        processingAttempts: t.processingAttempts,
+        lastError: t.lastError,
+        statusHistory: t.statusHistory,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+      }));
+    return withRetries;
+  });
+
+  /** Operational Metrics */
+
+  /** GET /admin/metrics — operational metrics */
+  fastify.get('/admin/metrics', adminGuards, async () => {
+    return fastify.container.services.operationalMetrics.getMetrics();
+  });
+
+  /** POST /admin/metrics/record — record an API latency sample */
+  fastify.post<{ Body: { route: string; latencyMs: number; statusCode: number } }>(
+    '/admin/metrics/record',
+    { preHandler: [requireVerifiedSession, requireRole('admin')] },
+    async (req) => {
+      const { route, latencyMs, statusCode } = req.body ?? {};
+      if (!route || typeof latencyMs !== 'number' || typeof statusCode !== 'number') {
+        return;
+      }
+      fastify.container.services.operationalMetrics.recordLatency(route, latencyMs, statusCode);
+      return { recorded: true };
+    },
+  );
 }

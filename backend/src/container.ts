@@ -29,6 +29,8 @@ import { DeadLetterQueue } from "./modules/transfers/deadLetterQueue";
 import { StellarMonitorService } from "./modules/system/stellarMonitorService";
 import { AuthRiskEngine } from "./auth/riskEngine";
 import { SettlementAnalyticsService } from "./modules/transfers/settlementAnalyticsService";
+import { AdminAlertService } from "./modules/system/adminAlertService";
+import { OperationalMetricsService } from "./modules/system/operationalMetricsService";
 
 export interface AppContainer {
   config: AppConfig;
@@ -50,6 +52,8 @@ export interface AppContainer {
     recurringPayments: RecurringPaymentService;
     errorLog: ErrorLogService;
     stellarFee: StellarFeeService;
+    adminAlerts: AdminAlertService;
+    operationalMetrics: OperationalMetricsService;
 
   };
 }
@@ -100,6 +104,8 @@ export function createContainer(): AppContainer {
   const stellarMonitor = new StellarMonitorService(errorLog);
   const authRiskEngine = new AuthRiskEngine(eventBus);
   const settlementAnalytics = new SettlementAnalyticsService(eventBus);
+  const adminAlerts = new AdminAlertService(eventBus);
+  const operationalMetrics = new OperationalMetricsService();
 
   recurringWorker.start();
   stellarMonitor.start();
@@ -151,6 +157,8 @@ export function createContainer(): AppContainer {
       recurringPayments,
       errorLog,
       stellarFee,
+      adminAlerts,
+      operationalMetrics,
 
     },
   };

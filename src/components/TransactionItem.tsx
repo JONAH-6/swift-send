@@ -154,7 +154,12 @@ function TransactionItemComponent({
         <div className="border-t border-border/50 pt-3 space-y-3">
           {/* Transaction Status Timeline */}
           <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-            <TransactionStatusTimeline status={transaction.status} />
+            <TransactionStatusTimeline
+              status={transaction.status}
+              retryCount={(transaction as any).retryCount}
+              maxRetries={(transaction as any).maxRetries}
+              lastError={(transaction as any).lastError}
+            />
           </div>
 
           {/* Transaction Details */}
@@ -371,7 +376,7 @@ function TransactionItemComponent({
             )}
             {transaction.status === 'failed' && (
               <p className="text-xs text-red-600 dark:text-red-400">
-                ❌ Transaction failed • USDC returned to your wallet
+                ❌ Transaction failed{(transaction as any).retryCount ? ` after ${(transaction as any).retryCount} retries` : ''} • USDC returned to your wallet
               </p>
             )}
           </div>

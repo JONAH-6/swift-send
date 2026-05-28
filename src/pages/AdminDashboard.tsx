@@ -1,4 +1,4 @@
-import { Shield, AlertTriangle, Activity, BarChart3, Server, FileWarning } from "lucide-react";
+import { Shield, AlertTriangle, Activity, BarChart3, Server, FileWarning, Bell, Gauge } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 
@@ -37,6 +37,20 @@ const adminCards = [
     icon: BarChart3,
     href: "/admin/settlements",
     color: "text-green-500",
+  },
+  {
+    title: "Failure Alerts",
+    description: "Real-time transaction failure alerts and notifications",
+    icon: Bell,
+    href: "/admin/alerts",
+    color: "text-red-500",
+  },
+  {
+    title: "Operational Metrics",
+    description: "Monitor API latency, throughput, and system uptime",
+    icon: Gauge,
+    href: "/admin/metrics",
+    color: "text-blue-500",
   },
 ];
 

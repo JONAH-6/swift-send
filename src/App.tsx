@@ -24,6 +24,14 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const ComplianceInfo = lazy(() => import("./pages/ComplianceInfo"));
 const Refunds = lazy(() => import("./pages/Refunds"));
 const NotificationPreferences = lazy(() => import("./pages/NotificationPreferences"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminErrorDashboard = lazy(() => import("./pages/AdminErrorDashboard"));
+const AdminComplianceLogs = lazy(() => import("./pages/AdminComplianceLogs"));
+const AdminDeadLetterQueue = lazy(() => import("./pages/AdminDeadLetterQueue"));
+const AdminSettlementAnalytics = lazy(() => import("./pages/AdminSettlementAnalytics"));
+const AdminStellarMonitor = lazy(() => import("./pages/AdminStellarMonitor"));
+const AdminFailureAlerts = lazy(() => import("./pages/AdminFailureAlerts"));
+const AdminOperationalMetrics = lazy(() => import("./pages/AdminOperationalMetrics"));
 const VerificationFlow = lazy(() =>
   import("./components/VerificationFlow").then((module) => ({
     default: module.VerificationFlow,
@@ -151,7 +159,74 @@ function AppRoutes() {
           }
         />
         <Route
-
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <NotificationPreferences />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/errors"
+          element={
+            <ProtectedRoute>
+              <AdminErrorDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/compliance"
+          element={
+            <ProtectedRoute>
+              <AdminComplianceLogs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/dlq"
+          element={
+            <ProtectedRoute>
+              <AdminDeadLetterQueue />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/settlements"
+          element={
+            <ProtectedRoute>
+              <AdminSettlementAnalytics />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/stellar"
+          element={
+            <ProtectedRoute>
+              <AdminStellarMonitor />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/alerts"
+          element={
+            <ProtectedRoute>
+              <AdminFailureAlerts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/metrics"
+          element={
+            <ProtectedRoute>
+              <AdminOperationalMetrics />
             </ProtectedRoute>
           }
         />
