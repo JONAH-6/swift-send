@@ -29,6 +29,7 @@ const AdminErrorDashboard = lazy(() => import("./pages/AdminErrorDashboard"));
 const AdminComplianceLogs = lazy(() => import("./pages/AdminComplianceLogs"));
 const AdminDeadLetterQueue = lazy(() => import("./pages/AdminDeadLetterQueue"));
 const AdminSettlementAnalytics = lazy(() => import("./pages/AdminSettlementAnalytics"));
+const AdminRevenueForecasting = lazy(() => import("./pages/AdminRevenueForecasting"));
 const AdminStellarMonitor = lazy(() => import("./pages/AdminStellarMonitor"));
 const AdminFailureAlerts = lazy(() => import("./pages/AdminFailureAlerts"));
 const AdminOperationalMetrics = lazy(() => import("./pages/AdminOperationalMetrics"));
@@ -195,6 +196,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <AdminDeadLetterQueue />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/revenue-forecasting"
+          element={
+            <ProtectedRoute>
+              <AdminRevenueForecasting />
             </ProtectedRoute>
           }
         />

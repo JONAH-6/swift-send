@@ -399,6 +399,12 @@ export class TransferLifecycle {
       return;
     }
 
+    const rollbackReason = this.detectIncompleteFlow(transfer);
+    if (rollbackReason) {
+      await this.triggerRollbackSafeguard(transfer, rollbackReason, transferLogger);
+      return;
+    }
+
     try {
       await this.wallets.settleEscrow({
         transferId: transfer.id,
@@ -444,27 +450,11 @@ export class TransferLifecycle {
       );
 
       if (transfer.processingAttempts >= config.queues.maxSettlementAttempts) {
-        await this.wallets.refundEscrow({
-          userId: transfer.userId,
-          transferId: transfer.id,
-          destinationAccount: transfer.fromWalletId,
-          amount: transfer.amount,
-          currency: transfer.currency,
-          metadata: { reason: 'auto_refund' },
-        });
-        this.appendStatus(transfer, 'failed', transfer.lastError);
-        await this.eventBus.publish({
-          type: TransferEventType.Failed,
-          timestamp: new Date().toISOString(),
-          payload: {
-            userId: transfer.userId,
-            transferId: transfer.id,
-            amount: transfer.amount,
-            currency: transfer.currency,
-            recipientName: this.recipientName(transfer),
-            error: transfer.lastError,
-          },
-        });
+        await this.triggerRollbackSafeguard(
+          transfer,
+          `max settlement attempts reached: ${transfer.lastError}`,
+          transferLogger,
+        );
       } else {
         this.scheduleSettlement(transfer.id);
       }
@@ -479,6 +469,57 @@ export class TransferLifecycle {
       return externalTxHash;
     }
     return `sim_${transfer.id}_${Date.now().toString(16)}`;
+  }
+
+  private detectIncompleteFlow(transfer: TransferRecord): string | null {
+    if (transfer.state === 'held' && !transfer.escrowId) {
+      return 'missing escrow id while transfer is held';
+    }
+    if (transfer.state === 'submitted' && !transfer.transactionHash && transfer.processingAttempts > 0) {
+      return 'submitted transfer missing transaction hash after prior attempts';
+    }
+    return null;
+  }
+
+  private async triggerRollbackSafeguard(
+    transfer: TransferRecord,
+    reason: string,
+    logger: ReturnType<typeof createLogger>,
+  ) {
+    const note = `rollback safeguard: ${reason}`;
+    try {
+      await this.wallets.refundEscrow({
+        userId: transfer.userId,
+        transferId: transfer.id,
+        destinationAccount: transfer.fromWalletId,
+        amount: transfer.amount,
+        currency: transfer.currency,
+        metadata: { reason: 'rollback_safeguard', trigger: reason },
+      });
+      logger.warn({ transferId: transfer.id, reason }, 'rollback safeguard executed');
+    } catch (refundErr: unknown) {
+      logger.error(
+        { transferId: transfer.id, reason, error: refundErr instanceof Error ? refundErr.message : String(refundErr) },
+        'rollback safeguard refund failed',
+      );
+    }
+
+    this.appendStatus(transfer, 'failed', note);
+    transfer.lastError = note;
+    await this.repository.update(transfer);
+    await this.eventBus.publish({
+      type: TransferEventType.Failed,
+      timestamp: new Date().toISOString(),
+      payload: {
+        userId: transfer.userId,
+        transferId: transfer.id,
+        amount: transfer.amount,
+        currency: transfer.currency,
+        recipientName: this.recipientName(transfer),
+        error: note,
+      },
+    });
+    logger.info({ transferId: transfer.id }, 'reconciliation event recorded for rollback safeguard');
   }
 }
 

@@ -1,4 +1,4 @@
-import { Shield, AlertTriangle, Activity, BarChart3, Server, FileWarning, Bell, Gauge } from "lucide-react";
+import { Shield, AlertTriangle, Activity, BarChart3, Server, FileWarning, Bell, Gauge, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 
@@ -30,6 +30,13 @@ const adminCards = [
     icon: Server,
     href: "/admin/stellar",
     color: "text-purple-500",
+  },
+  {
+    title: "Revenue Forecasting",
+    description: "Forecast revenue trends and compare historical fee performance",
+    icon: TrendingUp,
+    href: "/admin/revenue-forecasting",
+    color: "text-emerald-500",
   },
   {
     title: "Settlement Analytics",
