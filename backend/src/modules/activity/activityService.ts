@@ -100,6 +100,22 @@ export interface AdminFeeAnalyticsDto {
     fees: number;
     transfers: number;
   }>;
+  growth: {
+    feesGrowthPct: number;
+    volumeGrowthPct: number;
+    transfersGrowthPct: number;
+    windowDays: number;
+  };
+  forecast: Array<{
+    month: string;
+    projectedVolume: number;
+    projectedFees: number;
+    projectedTransfers: number;
+  }>;
+  historicalComparison: {
+    trailing30Days: { volume: number; fees: number; transfers: number };
+    previous30Days: { volume: number; fees: number; transfers: number };
+  };
   corridorFees: Array<{
     corridor: string;
     transfers: number;
@@ -392,6 +408,14 @@ export class ActivityService {
     let failedTransfers = 0;
     let thisMonthFees = 0;
     let thisMonthVolume = 0;
+    let trailing30Fees = 0;
+    let trailing30Volume = 0;
+    let trailing30Transfers = 0;
+    let previous30Fees = 0;
+    let previous30Volume = 0;
+    let previous30Transfers = 0;
+    const trailing30Cutoff = now.getTime() - 30 * 24 * 60 * 60 * 1000;
+    const previous30Cutoff = now.getTime() - 60 * 24 * 60 * 60 * 1000;
 
     records.forEach((record) => {
       const fees = getFees(record.metadata);
@@ -415,6 +439,17 @@ export class ActivityService {
       ) {
         thisMonthFees += fees.totalFee;
         thisMonthVolume += record.amount;
+      }
+
+      const ts = recordDate.getTime();
+      if (ts >= trailing30Cutoff) {
+        trailing30Fees += fees.totalFee;
+        trailing30Volume += record.amount;
+        trailing30Transfers += 1;
+      } else if (ts >= previous30Cutoff) {
+        previous30Fees += fees.totalFee;
+        previous30Volume += record.amount;
+        previous30Transfers += 1;
       }
 
       const monthKey = `${recordDate.getUTCFullYear()}-${String(recordDate.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -442,6 +477,29 @@ export class ActivityService {
       corridorMap.set(corridorKey, corridorEntry);
     });
 
+    const monthlySeries = Array.from(monthlyMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-6)
+      .map(([, entry]) => ({
+        month: entry.month,
+        volume: round2(entry.volume),
+        fees: round2(entry.fees),
+        transfers: entry.transfers,
+      }));
+
+    const feesGrowthPct =
+      previous30Fees > 0 ? round2(((trailing30Fees - previous30Fees) / previous30Fees) * 100) : 0;
+    const volumeGrowthPct =
+      previous30Volume > 0
+        ? round2(((trailing30Volume - previous30Volume) / previous30Volume) * 100)
+        : 0;
+    const transfersGrowthPct =
+      previous30Transfers > 0
+        ? round2(((trailing30Transfers - previous30Transfers) / previous30Transfers) * 100)
+        : 0;
+
+    const forecast = this.buildForecast(monthlySeries, 3);
+
     return {
       summary: {
         totalTransfers: records.length,
@@ -456,15 +514,26 @@ export class ActivityService {
         thisMonthFees: round2(thisMonthFees),
         thisMonthVolume: round2(thisMonthVolume),
       },
-      monthlyFees: Array.from(monthlyMap.entries())
-        .sort(([a], [b]) => a.localeCompare(b))
-        .slice(-6)
-        .map(([, entry]) => ({
-          month: entry.month,
-          volume: round2(entry.volume),
-          fees: round2(entry.fees),
-          transfers: entry.transfers,
-        })),
+      monthlyFees: monthlySeries,
+      growth: {
+        feesGrowthPct,
+        volumeGrowthPct,
+        transfersGrowthPct,
+        windowDays: 30,
+      },
+      forecast,
+      historicalComparison: {
+        trailing30Days: {
+          volume: round2(trailing30Volume),
+          fees: round2(trailing30Fees),
+          transfers: trailing30Transfers,
+        },
+        previous30Days: {
+          volume: round2(previous30Volume),
+          fees: round2(previous30Fees),
+          transfers: previous30Transfers,
+        },
+      },
       corridorFees: Array.from(corridorMap.values())
         .sort((a, b) => b.fees - a.fees)
         .slice(0, 6)
@@ -489,6 +558,52 @@ export class ActivityService {
         };
       }),
     };
+  }
+
+  private buildForecast(
+    monthlyFees: Array<{ month: string; volume: number; fees: number; transfers: number }>,
+    months: number,
+  ) {
+    if (monthlyFees.length === 0) {
+      return [];
+    }
+
+    const recent = monthlyFees.slice(-Math.min(6, monthlyFees.length));
+    const feeDelta = this.averageDelta(recent.map((m) => m.fees));
+    const volumeDelta = this.averageDelta(recent.map((m) => m.volume));
+    const transferDelta = this.averageDelta(recent.map((m) => m.transfers));
+
+    const last = recent[recent.length - 1];
+    const start = new Date();
+    const output: Array<{
+      month: string;
+      projectedVolume: number;
+      projectedFees: number;
+      projectedTransfers: number;
+    }> = [];
+
+    for (let i = 1; i <= months; i += 1) {
+      const monthDate = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1));
+      output.push({
+        month: monthDate.toLocaleString('en-US', { month: 'short' }),
+        projectedFees: round2(Math.max(0, last.fees + feeDelta * i)),
+        projectedVolume: round2(Math.max(0, last.volume + volumeDelta * i)),
+        projectedTransfers: Math.max(0, Math.round(last.transfers + transferDelta * i)),
+      });
+    }
+
+    return output;
+  }
+
+  private averageDelta(values: number[]) {
+    if (values.length < 2) {
+      return 0;
+    }
+    let total = 0;
+    for (let i = 1; i < values.length; i += 1) {
+      total += values[i] - values[i - 1];
+    }
+    return total / (values.length - 1);
   }
 
   async searchTransactions(

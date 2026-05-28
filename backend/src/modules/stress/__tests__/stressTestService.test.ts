@@ -114,4 +114,40 @@ describe('StressTestService', () => {
       expect(result.errors.length).toBeGreaterThanOrEqual(0);
     }
   });
+
+  it('should simulate API downtime and recover with retry', async () => {
+    transferLifecycle.createTransfer.mockResolvedValue({ id: 'test' } as any);
+
+    const result = await service.runStressTest({
+      concurrency: 2,
+      totalTransfers: 6,
+      amount: 15,
+      userId: 'user_chaos',
+      walletId: 'wallet_chaos',
+      chaos: {
+        apiDowntimeEvery: 3,
+      },
+    });
+
+    expect(result.successful).toBeGreaterThan(0);
+    expect(result.perTransferResults.some((r) => r.recovered)).toBe(true);
+  });
+
+  it('should simulate blockchain latency in chaos mode', async () => {
+    transferLifecycle.createTransfer.mockResolvedValue({ id: 'test' } as any);
+
+    const result = await service.runStressTest({
+      concurrency: 1,
+      totalTransfers: 2,
+      amount: 8,
+      userId: 'user_chaos',
+      walletId: 'wallet_chaos',
+      chaos: {
+        blockchainLatencyMs: 10,
+      },
+    });
+
+    expect(result.averageLatencyMs).toBeGreaterThanOrEqual(10);
+    expect(result.failed).toBe(0);
+  });
 });
