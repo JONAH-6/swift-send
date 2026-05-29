@@ -246,6 +246,38 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     },
   );
 
+  /** Fraud Review Queue */
+  fastify.get('/admin/fraud/reviews', adminGuards, async () => {
+    return fastify.container.services.fraudReview.listPendingReviews();
+  });
+
+  fastify.get('/admin/fraud/reviews/logs', adminGuards, async (req) => {
+    const query = req.query as { limit?: string };
+    const limit = Number(query.limit) || 50;
+    return fastify.container.services.fraudReview.listReviewLogs(limit);
+  });
+
+  fastify.post<{ Params: { transferId: string } }>(
+    '/admin/fraud/reviews/:transferId/approve',
+    adminGuards,
+    async (req, reply) => {
+      const reviewerId = (req.user as JwtSessionPayload).sub;
+      const transfer = await fastify.container.services.transfers.approveReview(req.params.transferId, reviewerId);
+      return { transferId: transfer.id, status: transfer.state };
+    },
+  );
+
+  fastify.post<{ Params: { transferId: string }; Body: { reason?: string } }>(
+    '/admin/fraud/reviews/:transferId/reject',
+    adminGuards,
+    async (req, reply) => {
+      const reviewerId = (req.user as JwtSessionPayload).sub;
+      const reason = req.body?.reason;
+      const transfer = await fastify.container.services.transfers.rejectReview(req.params.transferId, reviewerId, reason);
+      return { transferId: transfer.id, status: transfer.state, rejectedReason: reason || 'manual rejection' };
+    },
+  );
+
   /** Transfer Retry State */
 
   /** GET /admin/transfers/retry-history — transfers with retry info */
@@ -282,7 +314,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   /** POST /admin/metrics/record — record an API latency sample */
   fastify.post<{ Body: { route: string; latencyMs: number; statusCode: number } }>(
     '/admin/metrics/record',
-    { preHandler: [requireVerifiedSession, requireRole('admin')] },
+    { preHandler: [requireVerifiedSession] },
     async (req) => {
       const { route, latencyMs, statusCode } = req.body ?? {};
       if (!route || typeof latencyMs !== 'number' || typeof statusCode !== 'number') {

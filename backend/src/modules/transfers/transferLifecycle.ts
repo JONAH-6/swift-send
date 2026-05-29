@@ -4,6 +4,7 @@ import { createLogger } from '../../logger';
 import { EventBus } from '../../core/eventBus';
 import { ComplianceService } from '../compliance/complianceService';
 import { FraudService } from '../fraud/fraudService';
+import { FraudReviewService } from '../fraud/fraudReviewService';
 import { WalletService } from '../wallets/walletService';
 import { TransferRepository } from './repository';
 import { CreateTransferCommand, TransferRecord, TransferState } from './domain';
@@ -16,6 +17,7 @@ export class TransferLifecycle {
     private readonly compliance: ComplianceService,
     private readonly fraud: FraudService,
     private readonly eventBus: EventBus,
+    private readonly fraudReview?: FraudReviewService,
   ) {}
 
   async createTransfer(command: CreateTransferCommand) {
@@ -148,6 +150,13 @@ export class TransferLifecycle {
     );
 
     if (fraudAssessment.flags.length > 0 || fraudAssessment.requiresReview) {
+      this.appendStatus(
+        transfer,
+        'review_pending',
+        `Requires manual review: ${fraudAssessment.level} risk`,
+      );
+      await this.repository.update(transfer);
+      this.fraudReview?.enqueueReview(transfer);
       await this.eventBus.publish({
         type: TransferEventType.Flagged,
         timestamp: new Date().toISOString(),
@@ -160,6 +169,7 @@ export class TransferLifecycle {
           recipientName: this.recipientName(transfer),
         },
       });
+      return transfer;
     }
 
     this.scheduleSettlement(transfer.id);
@@ -168,6 +178,68 @@ export class TransferLifecycle {
 
   async getTransfer(id: string) {
     return this.repository.findById(id);
+  }
+
+  async approveReview(transferId: string, reviewerId: string) {
+    const transfer = await this.repository.findById(transferId);
+    if (!transfer) {
+      throw new ValidationError('Transfer not found');
+    }
+    if (transfer.state !== 'review_pending') {
+      throw new ValidationError('Transfer is not pending review');
+    }
+
+    this.appendStatus(transfer, 'held', `Review approved by ${reviewerId}`);
+    await this.repository.update(transfer);
+    this.scheduleSettlement(transfer.id);
+    return transfer;
+  }
+
+  async rejectReview(transferId: string, reviewerId: string, reason?: string) {
+    const transfer = await this.repository.findById(transferId);
+    if (!transfer) {
+      throw new ValidationError('Transfer not found');
+    }
+    if (transfer.state !== 'review_pending') {
+      throw new ValidationError('Transfer is not pending review');
+    }
+
+    const failureReason = reason || 'Rejected by manual review';
+    try {
+      if (transfer.escrowId) {
+        await this.wallets.refundEscrow({
+          userId: transfer.userId,
+          transferId: transfer.id,
+          destinationAccount: transfer.fromWalletId,
+          amount: transfer.amount,
+          currency: transfer.currency,
+          metadata: { reason: 'fraud_review_rejection', reviewerId },
+        });
+      }
+    } catch (refundError: unknown) {
+      this.getLogger({ transferId }).error(
+        { error: refundError instanceof Error ? refundError.message : String(refundError) },
+        'refund after fraud rejection failed',
+      );
+    }
+
+    this.appendStatus(transfer, 'failed', `Review rejected by ${reviewerId}: ${failureReason}`);
+    transfer.lastError = failureReason;
+    await this.repository.update(transfer);
+    await this.eventBus.publish({
+      type: TransferEventType.Failed,
+      timestamp: new Date().toISOString(),
+      payload: {
+        userId: transfer.userId,
+        transferId: transfer.id,
+        amount: transfer.amount,
+        currency: transfer.currency,
+        recipientName: this.recipientName(transfer),
+        error: failureReason,
+      },
+    });
+
+    return transfer;
   }
 
   async simulateTransfer(command: CreateTransferCommand) {

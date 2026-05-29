@@ -5,6 +5,7 @@ import { ExportService } from "./modules/activity/exportService";
 import { ComplianceService } from "./modules/compliance/complianceService";
 import { CountryMetadataService } from "./modules/countries/countryMetadataService";
 import { FraudService } from "./modules/fraud/fraudService";
+import { FraudReviewService } from "./modules/fraud/fraudReviewService";
 import { createDemoNotifications } from "./modules/notifications/demoNotifications";
 import { NotificationService } from "./modules/notifications/notificationService";
 import { AccessGuardService } from "./modules/rbac/accessGuardService";
@@ -83,12 +84,14 @@ export function createContainer(): AppContainer {
     notifications,
     exporter,
   );
+  const fraudReview = new FraudReviewService();
   const transfers = new TransferLifecycle(
     transferRepository,
     wallets,
     compliance,
     fraud,
     eventBus,
+    fraudReview,
   );
   const deadLetterQueue = new DeadLetterQueue(eventBus);
   const transferQueue = new TransferQueue(transfers, eventBus, deadLetterQueue);
@@ -153,7 +156,7 @@ export function createContainer(): AppContainer {
       compliance,
       complianceLog,
       fraud,
-      notifications,
+    fraudReview,
       notification: notifications,
       activity,
       health,
