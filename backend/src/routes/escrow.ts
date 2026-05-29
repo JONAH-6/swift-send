@@ -34,13 +34,6 @@ export default async function escrowRoutes(fastify: FastifyInstance) {
         currency: escrow.currency,
         metadata: { reason: 'manual_release' },
       });
-      void fastify.container.services.notification.notifyEscrowReleased({
-        userId: (req.user as any)?.sub || 'unknown',
-        transferId,
-        amount: escrow.amount,
-        currency: escrow.currency,
-        destinationAccount: destination,
-      });
       return { ...escrow, status: 'released', destination };
     } catch (err: any) {
       const statusCode = err?.statusCode || (err?.code === 'escrow_already_finalized' ? 409 : 500);
@@ -65,13 +58,6 @@ export default async function escrowRoutes(fastify: FastifyInstance) {
         currency: escrow.currency,
         metadata: { reason: body.reason || 'manual_refund' },
       });
-      void fastify.container.services.notification.notifyEscrowRefunded({
-        userId: (req.user as any)?.sub || 'unknown',
-        transferId,
-        amount: escrow.amount,
-        currency: escrow.currency,
-        reason: body.reason,
-      });
       return { ...escrow, status: 'refunded', reason: body.reason };
     } catch (err: any) {
       const statusCode = err?.statusCode || (err?.code === 'escrow_already_finalized' ? 409 : 500);
@@ -90,13 +76,6 @@ export default async function escrowRoutes(fastify: FastifyInstance) {
 
     try {
       const updated = await fastify.container.services.wallets.disputeEscrow(transferId, body.reason);
-      void fastify.container.services.notification.notifyEscrowDisputed({
-        userId: (req.user as any)?.sub || 'unknown',
-        transferId,
-        amount: updated?.amount || 0,
-        currency: updated?.currency || 'USDC',
-        reason: body.reason,
-      });
       return { ...updated, message: 'Escrow marked as disputed. Funds are frozen pending resolution.' };
     } catch (err: any) {
       const statusCode = err?.statusCode || (err?.code === 'escrow_already_finalized' ? 409 : 500);

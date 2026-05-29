@@ -32,9 +32,6 @@ import { AuthRiskEngine } from "./auth/riskEngine";
 import { SettlementAnalyticsService } from "./modules/transfers/settlementAnalyticsService";
 import { AdminAlertService } from "./modules/system/adminAlertService";
 import { OperationalMetricsService } from "./modules/system/operationalMetricsService";
-import { TransactionApprovalService } from "./modules/approvals/approvalService";
-import { SuccessRateService } from "./modules/transfers/successRateService";
-import { RegionalFeeService } from "./modules/fees/regionalFeeService";
 
 export interface AppContainer {
   config: AppConfig;
@@ -63,9 +60,6 @@ export interface AppContainer {
     deadLetterQueue: DeadLetterQueue;
     settlementAnalytics: SettlementAnalyticsService;
     stellarMonitor: StellarMonitorService;
-    transactionApproval: TransactionApprovalService;
-    successRate: SuccessRateService;
-    regionalFee: RegionalFeeService;
 
   };
 }
@@ -120,9 +114,6 @@ export function createContainer(): AppContainer {
   const settlementAnalytics = new SettlementAnalyticsService(eventBus);
   const adminAlerts = new AdminAlertService(eventBus);
   const operationalMetrics = new OperationalMetricsService();
-  const transactionApproval = new TransactionApprovalService();
-  const successRate = new SuccessRateService();
-  const regionalFee = new RegionalFeeService();
 
   recurringWorker.start();
   stellarMonitor.start();
@@ -181,9 +172,6 @@ export function createContainer(): AppContainer {
       deadLetterQueue,
       settlementAnalytics,
       stellarMonitor,
-      transactionApproval,
-      successRate,
-      regionalFee,
 
     },
   };
