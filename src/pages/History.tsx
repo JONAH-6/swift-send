@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { BottomNav } from '@/components/BottomNav';
 import { useNavigate } from 'react-router-dom';
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, Cell, Pie, PieChart, XAxis, YAxis } from 'recharts';
@@ -133,7 +134,7 @@ const History: React.FC = () => {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-3xl bg-background min-h-screen px-3 sm:px-5 lg:px-6 pb-20">
+    <div className="mx-auto w-full max-w-3xl bg-background min-h-screen px-3 sm:px-5 lg:px-6 pb-24">
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
         <div className="py-6 pb-4">
           {/* Header with back button */}
@@ -425,6 +426,8 @@ const History: React.FC = () => {
           </div>
         )}
       </div>
+
+      <BottomNav />
     </div>
   );
 };

@@ -883,7 +883,7 @@ export default function SendMoney() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-32 overflow-x-hidden">
+    <div className="min-h-screen bg-background pb-24 overflow-x-hidden">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 sm:px-6 py-4">
         <div className="max-w-lg mx-auto flex items-center gap-3 sm:gap-4">
