@@ -38,6 +38,8 @@ import { RegionalFeeService } from "./modules/fees/regionalFeeService";
 import { securityEventsService } from "./modules/securityEvents/securityEventsService";
 import { receiptService } from "./modules/receipts/receiptService";
 import { WebhookDispatcher } from "./modules/webhooks/webhookDispatcher";
+import { WebhookService } from "./modules/webhooks/webhookService";
+import { AdminAuditService } from "./modules/admin/adminAuditService";
 
 export interface AppContainer {
   config: AppConfig;
@@ -50,6 +52,7 @@ export interface AppContainer {
     compliance: ComplianceService;
     complianceLog: ComplianceLogService;
     fraud: FraudService;
+    fraudReview: FraudReviewService;
     notifications: NotificationService;
     notification: NotificationService;
     activity: ActivityService;
@@ -71,7 +74,11 @@ export interface AppContainer {
     regionalFee: RegionalFeeService;
     securityEvents: typeof securityEventsService;
     receipts: typeof receiptService;
-    webhooks: WebhookDispatcher;
+    webhookDispatcher: WebhookDispatcher;
+    reconciliation: ReconciliationService;
+    stressTest: StressTestService;
+    webhooks: WebhookService;
+    adminAudit: AdminAuditService;
   };
 }
 
@@ -128,11 +135,11 @@ export function createContainer(): AppContainer {
   const transactionApproval = new TransactionApprovalService();
   const successRate = new SuccessRateService();
   const regionalFee = new RegionalFeeService();
-
-  // Additional services
-  const securityEvents = securityEventsService; // singleton
-  const receipts = receiptService; // singleton
+  const securityEvents = securityEventsService;
+  const receipts = receiptService;
   const webhookDispatcher = new WebhookDispatcher(eventBus);
+  const webhooks = new WebhookService(eventBus);
+  const adminAudit = new AdminAuditService();
 
   recurringWorker.start();
   stellarMonitor.start();
@@ -175,7 +182,8 @@ export function createContainer(): AppContainer {
       compliance,
       complianceLog,
       fraud,
-    fraudReview,
+      fraudReview,
+      notifications,
       notification: notifications,
       activity,
       health,
@@ -196,8 +204,11 @@ export function createContainer(): AppContainer {
       regionalFee,
       securityEvents,
       receipts,
-      webhooks: webhookDispatcher,
-
+      webhookDispatcher,
+      reconciliation,
+      stressTest,
+      webhooks,
+      adminAudit,
     },
   };
 }
