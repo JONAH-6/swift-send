@@ -9,6 +9,7 @@ export const TransferEventType = {
   Flagged: 'transfer.flagged',
   QueueCompleted: 'queue.transfer_completed',
   QueueFailed: 'queue.transfer_failed',
+  EscrowCreated: 'escrow.created',
 } as const;
 
 export type TransferEventType =
