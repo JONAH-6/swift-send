@@ -140,6 +140,18 @@ export class TransferLifecycle {
       },
     });
 
+    await this.eventBus.publish({
+      type: TransferEventType.EscrowCreated,
+      timestamp: new Date().toISOString(),
+      payload: {
+        userId: transfer.userId,
+        transferId: transfer.id,
+        amount: transfer.amount,
+        currency: transfer.currency,
+        recipientName: this.recipientName(transfer),
+      },
+    });
+
     transferLogger.info(
       {
         amount: transfer.amount,

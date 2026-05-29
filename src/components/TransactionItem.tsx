@@ -412,7 +412,7 @@ function TransactionItemComponent({
           </div>
         </div>
       )}
-    </div>
+    </button>
   );
 }
 
